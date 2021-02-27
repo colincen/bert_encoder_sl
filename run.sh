@@ -1,0 +1,1 @@
+python main.py --exp_name coach_bert_encoder  --exp_id atp --tgt_domain AddToPlaylist --model_type train --device cuda:0
