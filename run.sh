@@ -3,7 +3,11 @@ python main.py \
 --exp_id atp \
 --tgt_domain AddToPlaylist \
 --model_type train \
---device cuda:0 \
+--device cpu \
 --dump_path /home/sh/data/experiments \
 --bert_path /home/sh/bert-base-uncased \
---file_path /home/sh/data/coachdata/snips
+--file_path /home/sh/data/coachdata/snips \
+--corps_path /home/sh/data/corps.txt \
+--emb_file /home/sh/data \
+--emb_src Bert \
+--proj yes

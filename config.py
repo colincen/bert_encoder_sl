@@ -26,8 +26,15 @@ def get_params():
     parser.add_argument("--bert_path", type=str, default="/data/sh/bert-base-uncased", help="embeddings file")  
     # slu_word_char_embs_with_slotembs.npy
     parser.add_argument("--file_path", type=str, default="/data/sh/coachdata/snips", help="embedding dimension") #400
+    parser.add_argument("--corps_path", type=str, default="/home/sh/data/corps.txt", help="corps file") 
+    parser.add_argument("--emb_file", type=str, default="/home/sh/data", help="emb file") 
+    parser.add_argument("--proj", type=str, default="no", help="emb file")
+
     parser.add_argument("--emb_dim", type=int, default=768, help="embedding dimension") #400
     parser.add_argument("--batch_size", type=int, default=32, help="batch size")
+    parser.add_argument("--emb_src", type=str, default='Bert', help='embedding source')
+
+
     # parser.add_argument("--num_binslot", type=int, default=15, help="number of father slot")
     # parser.add_argument("--num_slot", type=int, default=72, help="number of slot types")
     # parser.add_argument("--num_domain", type=int, default=7, help="number of domain")

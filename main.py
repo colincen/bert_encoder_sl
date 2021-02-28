@@ -1,4 +1,5 @@
 import src.model as Model
+from src.model import ProjMartrix
 import torch
 import torch.nn as nn
 from src.datareader import get_dataloader
@@ -17,14 +18,54 @@ class Main:
         self.model_saved_path = None
         self.opti_saved_path = None
 
-    def do_train(self):
+
+    def do_pretrain(self):
         dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path)
+        premodel = ProjMartrix(params, dataloader_tr)  
+        premodel.to(params.device)
+        premodel.train()
+        pair_x, pair_y = premodel.get_words(params.emb_file)
+        pre_loss_func = nn.MSELoss()
+        pre_optimizer = torch.optim.Adam(premodel.parameters(), lr = params.lr)
+        for i, (x, y) in enumerate(premodel.batch_generator(pair_x, pair_y)):
+
+            y = torch.tensor(y, device= params.device)
+            output = premodel(x, y)
+            pre_optimizer.zero_grad()
+            loss = pre_loss_func(output, y)            
+            if i % 50 == 0:
+                self.logger.info("MSE loss: %.4f" % loss)
+            loss.backward()
+            pre_optimizer.step()
+
+        proj_saved_path = os.path.join(self.params.dump_path, "proj.pth")
+        torch.save({"projection_matrix" : premodel.state_dict() },proj_saved_path)
+
+
+
+    def do_train(self):
+        # self.do_pretrain()
+
+        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path)
+        
+        premodel = None
+        if os.path.exists(os.path.join(self.params.dump_path, "proj.pth")):
+            premodel = torch.load(os.path.join(self.params.dump_path, "proj.pth"), map_location=params.device)
+
+             
+
         dev_test_idx2tag = {v:k for k,v in dev_test_tag2idx.items()}
         self.dev_test_idx2tag = dev_test_idx2tag
         self.train_tag2idx, self.dev_test_tag2idx = train_tag2idx, dev_test_tag2idx
         
-        self.slt = Model.SlotFilling(train_tag2idx, dev_test_tag2idx, bert_path=params.bert_path,device=params.device)
-        self.optimizer = torch.optim.AdamW(self.slt.parameters(), lr = params.lr)
+        self.slt = Model.SlotFilling(params, train_tag2idx, dev_test_tag2idx, bert_path=params.bert_path,device=params.device)
+        if premodel is not None:
+            self.slt.Proj_W = premodel.Proj
+
+
+        self.optimizer = torch.optim.Adam(self.slt.parameters(), lr = params.lr)
+
+
         self.slt.to(params.device)
         
         best_dev_f1 = 0
