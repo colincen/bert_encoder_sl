@@ -5,11 +5,26 @@ import numpy as np
 import torchtext
 import random
 from collections import Counter
-from .datareader import slot2desp
+from .datareader import slot2desp, father_son_slot, coarse
+import torch.nn.functional as F
 
 class LabelEmbeddingFactory:
     def __init__(self):
-        pass
+        self.fine2coarse = {}
+        for k,v in father_son_slot.items():
+            for t in v:
+                self.fine2coarse[t] = k
+        self.coarse2vec = {}
+        self.coarse2vec['pad'] = np.zeros(4, dtype = np.float32)
+        self.coarse2vec['O'] = np.array([0,0,0,1], dtype = np.float32)
+        self.coarse2vec['person'] = np.array([0,0,1,0], dtype = np.float32)
+        self.coarse2vec['location'] = np.array([0,0,1,1], dtype = np.float32)
+        self.coarse2vec['special_name'] = np.array([0,1,0,0], dtype = np.float32)
+        self.coarse2vec['common_name'] = np.array([0,1,0,1], dtype = np.float32)
+        self.coarse2vec['number'] = np.array([0,1,1,0], dtype = np.float32)
+        self.coarse2vec['direction'] = np.array([0,1,1,1], dtype = np.float32)
+        self.coarse2vec['others'] = np.array([1,0,0,0], dtype = np.float32)
+        
 
     def BertEncoderAve(self, tag2idx, tokenizer, encoder):
         emb = []
@@ -20,26 +35,40 @@ class LabelEmbeddingFactory:
             tag_emb = None
             ####################
             if tag == "<PAD>":
-                tag_emb = np.zeros(dim+3, dtype=np.float32)
-                
+                # tag_emb = np.zeros(dim+3+9, dtype=np.float32)
+                tag_emb = np.concatenate((np.array([0,0,0],dtype = np.float32), 
+                self.coarse2vec[self.fine2coarse[tag]], 
+                np.zeros(dim, dtype=np.float32)), 0)
+
             elif tag == "O":
-                tag_emb = np.zeros(dim+3, dtype=np.float32)
-                tag_emb[2] = 1
+                # tag_emb = np.zeros(dim+3+9, dtype=np.float32)
+                # tag_emb[2] = 1
+                tag_emb = np.concatenate((np.array([0,0,1], dtype=np.float32), 
+                self.coarse2vec[self.fine2coarse[tag]], 
+                np.zeros(dim, dtype=np.float32)), 0)
+
             ####################
             else:
                 slot = tag[2:]
+                #########
+                # 这里可以把slot改成description试试
                 tokens = tokenizer.encode(slot)
+                #########
                 tokens = torch.tensor(tokens)
                 tokens = tokens.unsqueeze(0)
                 reps = encoder(tokens)[0].mean(1).squeeze()
                 reps = reps.detach().cpu().numpy()
                 if tag[0] == "B":
-                    reps = np.concatenate((np.array([1,0,0], dtype=np.float32), reps), 0)
+                    reps = np.concatenate((np.array([1,0,0], dtype=np.float32), 
+                    self.coarse2vec[self.fine2coarse[tag[2:]]],
+                    reps), 0)
                     
 
 
                 elif tag[0] == "I":
-                    reps = np.concatenate((np.array([0,1,0], dtype=np.float32), reps), 0)
+                    reps = np.concatenate((np.array([0,1,0], dtype=np.float32), 
+                    self.coarse2vec[self.fine2coarse[tag[2:]]],
+                    reps), 0)
                 
 
                 tag_emb = reps
@@ -114,8 +143,9 @@ class ProjMartrix(nn.Module):
         self.tokenizer = BertTokenizer.from_pretrained(params.bert_path)
         self.encoder = BertModel.from_pretrained(params.bert_path)
 
-        self.Proj = nn.Parameter(torch.empty(768, 300))
-        nn.init.xavier_normal_(self.Proj, -0.1, 0.1)
+        self.Proj = nn.Parameter(torch.empty(768, 300), requires_grad=False)
+        self.dropout = nn.Dropout(params.dropout)
+        nn.init.xavier_normal_(self.Proj)
         with open(params.corps_path, 'r') as f:
             self.corps = f.read()
         f.close()
@@ -141,8 +171,8 @@ class ProjMartrix(nn.Module):
         output = self.encoder(input_ids, attention_mask=attention_mask)[0]
         output = output.mean(1)
         output = torch.matmul(output, self.Proj)
+        output = self.dropout(output)
         return output
-
 
 
     @staticmethod
@@ -177,13 +207,13 @@ class ProjMartrix(nn.Module):
     def get_words(self, emb_path):
         tokens = []
         c = Counter(self.corps.split(' '))
-        c = [(k, v) for k, v in c.items()][1:3000]
+        c = [(k, v) for k, v in c.items()][1:10000]
         
         # 加入高频词
         for k, v in c:
             tokens.append(k)
         
-        加入所有训练语料token
+        # 加入所有训练语料token
         for w in self.train_tokens:
             if w not in tokens:
                 tokens.append(w)
@@ -262,29 +292,54 @@ class SlotFilling(nn.Module):
         elif params.emb_src == 'Glove':
             self.train_labelembedding = labelembedding.GloveEmbAve(params.emb_file, train_tag2idx).to(device)
             self.dev_test_labelembedding = labelembedding.GloveEmbAve(params.emb_file, dev_test_tag2idx).to(device)
-        self.sim_func = Similarity(size=(768, 768 + 3), type='mul')
+        self.sim_func = Similarity(size=(768, 768 + 3 + 4), type='mul')
         self.sim_func2 = Similarity(size=(768, 300 + 3), type='mul')
         self.Proj_W = nn.Parameter(torch.empty(768, 300))
+        self.droupout = nn.Dropout(params.dropout)
         torch.nn.init.uniform_(self.Proj_W, -0.1, 0.1)
+
+
+        self.coarse_emb = nn.Linear(768, 768)
+        self.fc_for_coarse = nn.Linear(768, 9)
+
+        self.fine_emb = nn.Linear(768, 768)
+
+
+        self.fc_for_concat_emb = nn.Linear(768 * 2, 768)
+
+
+
+
+
 
     def forward(self, x, heads, seq_len, domains, iseval=False, y=None):
         
         attention_mask = (x != 0).byte().to(self.device)
         reps = self.encoder(x, attention_mask=attention_mask)[0]
+        bert_out_reps = self.droupout(reps)
         labelembedding = None
         if not iseval:
             labelembedding = self.train_labelembedding
         else:
             labelembedding = self.dev_test_labelembedding
 
+        reps = bert_out_reps
+        coarse_reps = self.coarse_emb(reps)
+        coarse_logits = self.fc_for_coarse(reps)
+
+        reps = self.fine_emb(reps)
+
+        reps = self.fc_for_concat_emb(torch.cat((coarse_reps, reps), -1))
+
         if self.params.proj == 'no':
-            score = self.sim_func(reps, labelembedding)
+            final_logits = self.sim_func(reps, labelembedding)
         else:
             prefix ,suffix = torch.split(labelembedding, [3, 768], dim=-1)
             suffix_embedding = torch.matmul(suffix, self.Proj_W)
             labelembedding = torch.cat((prefix, suffix_embedding), dim=-1)
-            score = self.sim_func2(reps, labelembedding)
+            final_logits = self.sim_func2(reps, labelembedding)
 
         
-        return score    
+        return coarse_logits, final_logits, bert_out_reps, reps
+
 

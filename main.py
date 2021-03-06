@@ -2,7 +2,7 @@ import src.model as Model
 from src.model import ProjMartrix
 import torch
 import torch.nn as nn
-from src.datareader import get_dataloader
+from src.datareader import get_dataloader, coarse
 from src.conlleval import evaluate
 from config import get_params, init_experiment
 from tqdm import tqdm
@@ -15,6 +15,7 @@ class Main:
         self.params = params
         self.logger = logger
         self.loss_func = nn.CrossEntropyLoss()
+        self.mse_loss_func = nn.MSELoss()
         self.model_saved_path = None
         self.opti_saved_path = None
 
@@ -27,16 +28,18 @@ class Main:
         pair_x, pair_y = premodel.get_words(params.emb_file)
         pre_loss_func = nn.MSELoss()
         pre_optimizer = torch.optim.Adam(premodel.parameters(), lr = params.lr)
-        for i, (x, y) in enumerate(premodel.batch_generator(pair_x, pair_y)):
+        for e in range(1):
+            for i, (x, y) in enumerate(premodel.batch_generator(pair_x, pair_y)):
 
-            y = torch.tensor(y, device= params.device)
-            output = premodel(x, y)
-            pre_optimizer.zero_grad()
-            loss = pre_loss_func(output, y)            
-            if i % 50 == 0:
-                self.logger.info("MSE loss: %.4f" % loss)
-            loss.backward()
-            pre_optimizer.step()
+                y = torch.tensor(y, device= params.device)
+                output = premodel(x, y)
+                pre_optimizer.zero_grad()
+                loss = pre_loss_func(output, y)            
+                if i % 50 == 0:
+                    self.logger.info("MSE loss: %.4f" % loss)
+                loss.backward()
+                pre_optimizer.step()
+        
 
         proj_saved_path = os.path.join(self.params.dump_path, "proj.pth")
         torch.save({"projection_matrix" : premodel.state_dict() },proj_saved_path)
@@ -44,13 +47,16 @@ class Main:
 
 
     def do_train(self):
-        # self.do_pretrain()
-
         dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path)
         
         premodel = None
-        if os.path.exists(os.path.join(self.params.dump_path, "proj.pth")):
-            premodel = torch.load(os.path.join(self.params.dump_path, "proj.pth"), map_location=params.device)
+        if (not os.path.exists(os.path.join(self.params.dump_path, "proj.pth"))) and (self.params.proj == 'yes'):
+            self.do_pretrain()
+            
+            
+        premodel = torch.load(os.path.join(self.params.dump_path, "proj.pth"), map_location=params.device)
+        self.logger.info("load projection matrix succeed!")
+            
 
              
 
@@ -60,7 +66,8 @@ class Main:
         
         self.slt = Model.SlotFilling(params, train_tag2idx, dev_test_tag2idx, bert_path=params.bert_path,device=params.device)
         if premodel is not None:
-            self.slt.Proj_W = premodel.Proj
+
+            self.slt.Proj_W.data = premodel["projection_matrix"]["Proj"]
 
 
         self.optimizer = torch.optim.Adam(self.slt.parameters(), lr = params.lr)
@@ -74,19 +81,44 @@ class Main:
         for epoch in range(params.epoch):
             self.slt.train()
             pbar = tqdm(enumerate(dataloader_tr), total=len(dataloader_tr))
-            loss_list = []
-            for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len) in pbar:
+            
+            total_loss_list = []
+            coarse_loss_list = []
+            sim_loss_list = []
+            mse_loss_list = []
+
+            for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len, coarse_label) in pbar:
                 y = y.to(params.device)
+                coarse_label = coarse_label.to(params.device)
                 bsz, max_len = x.size(0), x.size(1)
                 x = x.to(params.device)
                 pad_heads = pad_heads.to(params.device)
-                score = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, domains=domains)
+                coarse_logits, final_logits, bert_out_reps, reps = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, domains=domains)
+
+
                 self.optimizer.zero_grad()
-                loss = self.loss_func(score.view(bsz*max_len, -1), y.view(-1))
+                loss_sim = self.loss_func(final_logits.view(bsz*max_len, -1), y.view(-1))
+
+                loss_coarse = self.loss_func(coarse_logits.view(bsz*max_len, -1), coarse_label.view(-1))
+
+                mseloss = self.mse_loss_func(reps, bert_out_reps)
+
+                loss = loss_sim + loss_coarse + mseloss
+
                 loss.backward()
-                loss_list.append(loss.item())
+                total_loss_list.append(loss.item())
+                coarse_loss_list.append(loss_coarse.item())
+                sim_loss_list.append(loss_sim.item())
+                mse_loss_list.append(mseloss.item())
+
                 self.optimizer.step()
-                pbar.set_description("(Epoch {}) LOSS:{:.4f} ".format((epoch+1), np.mean(loss_list)))
+                pbar.set_description("(Epoch {}) Coarse LOSS:{:.4f} MSE LOSS:{:.4f} Sim LOSS:{:.4f} Total Loss".format \
+                ((epoch+1), \
+                    np.mean(coarse_loss_list), \
+                    np.mean(mse_loss_list), \
+                    np.mean(sim_loss_list), \
+                    np.mean(total_loss_list)
+                    ))
 
                 
             dev_f1, di_dev = self.do_test(dataloader_val)
@@ -109,22 +141,33 @@ class Main:
         pbar = tqdm(enumerate(data_gen), total=len(data_gen))
         gold = []
         pred = []
-        for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len) in pbar:
+
+        coarse_gold = []
+        coarse_pred = []
+
+        for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len, coarse_label) in pbar:
             y = y.to(params.device)
             bsz, max_len = x.size(0), x.size(1)
             x = x.to(params.device)
             pad_heads = pad_heads.to(params.device)
-            score = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, iseval = True, domains=domains)
-            score = torch.softmax(score, -1)
+            coarse_logits, final_logits, bert_out_reps, reps = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, iseval = True, domains=domains)
+            score = torch.softmax(final_logits, -1)
             score = score.argmax(-1)
+            coarse_score = torch.softmax(coarse_logits, -1)
+            coarse_score = coarse_score.argmax(-1)
 
             for j in range(len(pad_heads)):
                 _pred = []
                 _gold = []
+
+                _coarse_pred = []
+                _coarse_gold = []
+
                 for k in range(1, seq_len[j] - 1):
                     if pad_heads[j][k].item() == 1:
                         _pred.append(self.dev_test_idx2tag[score[j][k].item()])
                         _gold.append(self.dev_test_idx2tag[y[j][k].item()])
+
 
                 gold.append(_gold)
                 pred.append(_pred)

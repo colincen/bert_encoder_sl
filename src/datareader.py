@@ -53,6 +53,20 @@ domain2slot = {
     "SearchScreeningEvent": ['timeRange', 'movie_type', 'object_location_type','object_type', 'location_name', 'spatial_relation', 'movie_name']
 }
 
+coarse = [ 'pad', 'O', 'person', 'location', 'special_name', 'common_name', 'number', 'direction', 'others']
+father_son_slot={
+    'pad':['<PAD>'],
+    'O':['O'],
+    'person':['artist','playlist_owner','party_size_description'],
+    'location':['state','city','geographic_poi','object_location_type','location_name','country','poi'],
+    'special_name':['album','service','entity_name','playlist','music_item','track','movie_name','object_name',
+                    'served_dish','restaurant_name','cuisine'],
+    'common_name':['object_type', 'object_part_of_series_type','movie_type','restaurant_type','genre','facility',
+                'condition_description','condition_temperature'],
+    'number':['rating_value','best_rating','year','party_size_number','timeRange'],
+    'direction':['spatial_relation','current_location','object_select'],
+    'others':['rating_unit', 'sort']
+}
 
 
 
@@ -64,6 +78,11 @@ class NerDataset(Dataset):
             sents.append(["[CLS]"] + entry[0] + ["[SEP]"])
             tags.append(["<PAD>"] + entry[1] + ["<PAD>"])
             domains.append([entry[-1]])
+        self.fine2coarse = {}
+        for k,v in father_son_slot.items():
+            for t in v:
+                self.fine2coarse[t] = k
+
         self.sents, self.tags, self.domains, self.tag2idx = sents, tags, domains, tag2idx
     
     def __len__(self):
@@ -73,10 +92,13 @@ class NerDataset(Dataset):
         tag2idx = self.tag2idx
         words, tags, domains = self.sents[idx], self.tags[idx], self.domains[idx]
 
+
+
         domains = domain_set.index(domains[0])
 
         x, y = [], []
-
+        coarse_labels = []
+        bins_label = []
         is_heads = []
         for w, t in zip(words, tags):
             tokens = self.tokenizer.tokenize(w) if w not in ("[CLS]", "[SEP]") else [w]
@@ -87,11 +109,24 @@ class NerDataset(Dataset):
 
             yy = [tag2idx[each] for each in t]
 
+            coarse_label = []
+
+            for lab in t:
+                if lab in ['O','<PAD>']:
+                    coarse_label.append(coarse.index(self.fine2coarse[lab]))
+                else:
+                    slot = lab[2:]
+                    coarse_label.append(coarse.index(self.fine2coarse[slot]))
+            
+
             x.extend(xx)
             is_heads.extend(is_head)
             y.extend(yy)
+            coarse_labels.extend(coarse_label)
 
-        assert len(x) == len(y) == len(is_heads)
+        assert len(x) == len(y) == len(is_heads) == len(coarse_labels)
+
+
 
         seq_len = len(y)
         
@@ -99,7 +134,7 @@ class NerDataset(Dataset):
         words = " ".join(words)
         tags = " ".join(tags)
 
-        return words, x, is_heads, tags, y, domains, seq_len
+        return words, x, is_heads, tags, y, domains, seq_len, coarse_labels
 
 def read_file(fpath):
     raw_data = {}
@@ -125,21 +160,21 @@ def pad(batch):
     words = f(0)
     is_heads = f(2)
     tags = f(3)
-    seqlens = f(-1)
-    domains = f(-2)
+    seqlens = f(6)
+    domains = f(5)
+    coarse_labels = f(7)
     maxlen = np.array(seqlens).max()
 
 
     f = lambda x, seqlen: [sample[x] + [0] * (seqlen - len(sample[x])) for sample in batch] # 0: <pad>
     x = f(1, maxlen)
-    y = f(-3, maxlen)
+    y = f(4, maxlen)
     heads = f(2 ,maxlen)
-
+    pad_coarse_labels = f(7, maxlen)
 
     f = torch.LongTensor
 
-    return words, f(x), is_heads, f(heads), tags, f(y), domains, seqlens
-
+    return words, f(x), is_heads, f(heads), tags, f(y), domains, seqlens, f(pad_coarse_labels)
 
 
 def get_dataloader(tgt_domain, batch_size, fpath, bert_path):
@@ -168,6 +203,7 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path):
                 _I = "I-" + slot
                 if _I not in train_tag2idx.keys() and _I in y_set:
                     train_tag2idx[_I] = len(train_tag2idx)
+    
     dev_data = test_data[:500]
     test_data = test_data[500:]
 
