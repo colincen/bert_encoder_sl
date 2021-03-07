@@ -10,7 +10,7 @@ python main.py \
 --corps_path /home/sh/data/corps.txt \
 --emb_file /home/sh/data \
 --emb_src Bert \
---proj yes
+--proj no
 
 python main.py \
 --exp_name coach_bert_encoder  \
@@ -24,7 +24,7 @@ python main.py \
 --corps_path /home/sh/data/corps.txt \
 --emb_file /home/sh/data \
 --emb_src Bert \
---proj yes
+--proj no
 
 python main.py \
 --exp_name coach_bert_encoder  \
@@ -38,7 +38,7 @@ python main.py \
 --corps_path /home/sh/data/corps.txt \
 --emb_file /home/sh/data \
 --emb_src Bert \
---proj yes
+--proj no
 
 python main.py \
 --exp_name coach_bert_encoder  \
@@ -52,7 +52,7 @@ python main.py \
 --corps_path /home/sh/data/corps.txt \
 --emb_file /home/sh/data \
 --emb_src Bert \
---proj yes
+--proj no
 
 python main.py \
 --exp_name coach_bert_encoder  \
@@ -66,7 +66,7 @@ python main.py \
 --corps_path /home/sh/data/corps.txt \
 --emb_file /home/sh/data \
 --emb_src Bert \
---proj yes
+--proj no
 
 python main.py \
 --exp_name coach_bert_encoder  \
@@ -80,7 +80,7 @@ python main.py \
 --corps_path /home/sh/data/corps.txt \
 --emb_file /home/sh/data \
 --emb_src Bert \
---proj yes
+--proj no
 
 python main.py \
 --exp_name coach_bert_encoder  \
@@ -94,4 +94,4 @@ python main.py \
 --corps_path /home/sh/data/corps.txt \
 --emb_file /home/sh/data \
 --emb_src Bert \
---proj yes
+--proj no

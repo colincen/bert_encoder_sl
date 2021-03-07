@@ -54,6 +54,8 @@ domain2slot = {
 }
 
 coarse = [ 'pad', 'O', 'person', 'location', 'special_name', 'common_name', 'number', 'direction', 'others']
+bins_labels = [ 'pad', 'O', 'B-person','I-person' , 'B-location', 'I-location', 'B-special_name', 'I-special_name', 'B-common_name','I-common_name', 'B-number','I-number', 'B-direction','I-direction', 'B-others','I-others']
+
 father_son_slot={
     'pad':['<PAD>'],
     'O':['O'],
@@ -98,7 +100,7 @@ class NerDataset(Dataset):
 
         x, y = [], []
         coarse_labels = []
-        bins_label = []
+        bin_tags = []
         is_heads = []
         for w, t in zip(words, tags):
             tokens = self.tokenizer.tokenize(w) if w not in ("[CLS]", "[SEP]") else [w]
@@ -110,21 +112,28 @@ class NerDataset(Dataset):
             yy = [tag2idx[each] for each in t]
 
             coarse_label = []
+            bin_tag = []
 
             for lab in t:
                 if lab in ['O','<PAD>']:
                     coarse_label.append(coarse.index(self.fine2coarse[lab]))
+                    bin_tag.append(bins_labels.index(self.fine2coarse[lab]))
+
                 else:
                     slot = lab[2:]
                     coarse_label.append(coarse.index(self.fine2coarse[slot]))
+                    bin_tag.append(bins_labels.index(lab[:2] + self.fine2coarse[slot]))
             
 
             x.extend(xx)
             is_heads.extend(is_head)
             y.extend(yy)
             coarse_labels.extend(coarse_label)
+            bin_tags.extend(bin_tag)
 
-        assert len(x) == len(y) == len(is_heads) == len(coarse_labels)
+
+
+        assert len(x) == len(y) == len(is_heads) == len(coarse_labels) == len(bin_tags)
 
 
 
@@ -134,7 +143,7 @@ class NerDataset(Dataset):
         words = " ".join(words)
         tags = " ".join(tags)
 
-        return words, x, is_heads, tags, y, domains, seq_len, coarse_labels
+        return words, x, is_heads, tags, y, domains, seq_len, coarse_labels, bin_tags
 
 def read_file(fpath):
     raw_data = {}
@@ -163,6 +172,7 @@ def pad(batch):
     seqlens = f(6)
     domains = f(5)
     coarse_labels = f(7)
+    bin_tags = f(8)
     maxlen = np.array(seqlens).max()
 
 
@@ -171,10 +181,11 @@ def pad(batch):
     y = f(4, maxlen)
     heads = f(2 ,maxlen)
     pad_coarse_labels = f(7, maxlen)
+    pad_bin_tags = f(8, maxlen)
 
     f = torch.LongTensor
 
-    return words, f(x), is_heads, f(heads), tags, f(y), domains, seqlens, f(pad_coarse_labels)
+    return words, f(x), is_heads, f(heads), tags, f(y), domains, seqlens, f(pad_coarse_labels), f(pad_bin_tags)
 
 
 def get_dataloader(tgt_domain, batch_size, fpath, bert_path):
@@ -184,6 +195,7 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path):
     train_data = []
     dev_data = []
     test_data = []
+
     for k, v in domain2slot.items():
         if k == tgt_domain:
             test_data.extend(raw_data[k])
@@ -203,6 +215,12 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path):
                 _I = "I-" + slot
                 if _I not in train_tag2idx.keys() and _I in y_set:
                     train_tag2idx[_I] = len(train_tag2idx)
+    
+
+
+    
+    
+    
     
     dev_data = test_data[:500]
     test_data = test_data[500:]

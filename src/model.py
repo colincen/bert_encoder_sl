@@ -23,8 +23,7 @@ class LabelEmbeddingFactory:
         self.coarse2vec['common_name'] = np.array([0,1,0,1], dtype = np.float32)
         self.coarse2vec['number'] = np.array([0,1,1,0], dtype = np.float32)
         self.coarse2vec['direction'] = np.array([0,1,1,1], dtype = np.float32)
-        self.coarse2vec['others'] = np.array([1,0,0,0], dtype = np.float32)
-        
+        self.coarse2vec['others'] = np.array([1,0,0,0], dtype = np.float32)        
 
     def BertEncoderAve(self, tag2idx, tokenizer, encoder):
         emb = []
@@ -76,7 +75,6 @@ class LabelEmbeddingFactory:
             emb.append(tag_emb)
         
         return torch.tensor(emb)
-
 
     def GloveEmbAve(self, emb_path, tag2idx):
         glove = torchtext.vocab.GloVe(cache=emb_path, name='6B')

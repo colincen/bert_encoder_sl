@@ -2,7 +2,7 @@ import src.model as Model
 from src.model import ProjMartrix
 import torch
 import torch.nn as nn
-from src.datareader import get_dataloader, coarse
+from src.datareader import get_dataloader, coarse, bins_labels,father_son_slot
 from src.conlleval import evaluate
 from config import get_params, init_experiment
 from tqdm import tqdm
@@ -18,7 +18,6 @@ class Main:
         self.mse_loss_func = nn.MSELoss()
         self.model_saved_path = None
         self.opti_saved_path = None
-
 
     def do_pretrain(self):
         dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path)
@@ -43,8 +42,6 @@ class Main:
 
         proj_saved_path = os.path.join(self.params.dump_path, "proj.pth")
         torch.save({"projection_matrix" : premodel.state_dict() },proj_saved_path)
-
-
 
     def do_train(self):
         dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path)
@@ -87,7 +84,8 @@ class Main:
             sim_loss_list = []
             mse_loss_list = []
 
-            for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len, coarse_label) in pbar:
+            for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len, coarse_label, bin_tag) in pbar:
+                bin_tag = bin_tag.to(params.device)
                 y = y.to(params.device)
                 coarse_label = coarse_label.to(params.device)
                 bsz, max_len = x.size(0), x.size(1)
@@ -136,16 +134,37 @@ class Main:
             f.write(json.dumps(di_test) + '\n')
         f.close()
 
+    def finetag_to_coarsetag(self):
+        res_dict = {'<PAD>':"pad", "O":"O"}
+        for k,v in father_son_slot.items():
+            # res_dict["B-" + k] = len(res_dict)
+            # res_dict["I-" + k] = len(res_dict)
+            for t in v:
+                _B = "B-" + t
+                if _B not in res_dict.keys():
+                    res_dict[_B] = "B-" + k
+                _I = "I-" + t
+                if _I not in res_dict.keys():
+                    res_dict[_I] = "I-" + k 
+        return res_dict
+   
     def do_test(self, data_gen):
+
+
+
+
+
         self.slt.eval()
         pbar = tqdm(enumerate(data_gen), total=len(data_gen))
         gold = []
         pred = []
 
+
+        fine2coarsetag = self.finetag_to_coarsetag()
         coarse_gold = []
         coarse_pred = []
 
-        for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len, coarse_label) in pbar:
+        for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len, coarse_label, bin_tag) in pbar:
             y = y.to(params.device)
             bsz, max_len = x.size(0), x.size(1)
             x = x.to(params.device)
@@ -165,15 +184,46 @@ class Main:
 
                 for k in range(1, seq_len[j] - 1):
                     if pad_heads[j][k].item() == 1:
-                        _pred.append(self.dev_test_idx2tag[score[j][k].item()])
-                        _gold.append(self.dev_test_idx2tag[y[j][k].item()])
+                        pred_fine_tag = self.dev_test_idx2tag[score[j][k].item()]
+                        gold_fine_tag = self.dev_test_idx2tag[y[j][k].item()]
+
+                        _pred.append(pred_fine_tag)
+                        _gold.append(gold_fine_tag)
+
+
+                        _coarse_gold.append(fine2coarsetag[gold_fine_tag])
+                        _coarse_pred.append(fine2coarsetag[pred_fine_tag])
+                        
+
+
 
 
                 gold.append(_gold)
                 pred.append(_pred)
+                coarse_gold.append(_coarse_gold)
+                coarse_pred.append(_coarse_pred)
+        
+        
+
+        
         
         g = []
         p = []
+        for i in coarse_gold:
+            for j in i:
+                g.append(j)
+
+        for i in coarse_pred:
+            for j in i:
+                if j == "<PAD>" or j == 'pad':
+                    p.append("O")
+                else:
+                    p.append(j)
+        (prec, rec, f1), di = evaluate(g, p, self.logger)
+
+
+        g.clear()
+        p.clear()
         for i in gold:
             for j in i:
                 g.append(j)

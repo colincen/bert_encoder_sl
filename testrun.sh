@@ -1,7 +1,7 @@
 python main.py \
 --exp_name coach_bert_encoder  \
---exp_id atp \
---tgt_domain AddToPlaylist \
+--exp_id pm \
+--tgt_domain PlayMusic \
 --model_type train \
 --device cuda:0 \
 --dump_path /home/sh/data/experiments \
@@ -10,5 +10,4 @@ python main.py \
 --corps_path /home/sh/data/corps.txt \
 --emb_file /home/sh/data \
 --emb_src Bert \
---proj no \
---batch_size 32
+--proj no
