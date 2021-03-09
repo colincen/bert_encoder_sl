@@ -44,7 +44,7 @@ class Main:
         torch.save({"projection_matrix" : premodel.state_dict() },proj_saved_path)
 
     def do_train(self):
-        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path)
+        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx, train_slot2idx, dev_test_slot2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path)
         
         premodel = None
         if (not os.path.exists(os.path.join(self.params.dump_path, "proj.pth"))) and (self.params.proj == 'yes'):
@@ -59,9 +59,13 @@ class Main:
 
         dev_test_idx2tag = {v:k for k,v in dev_test_tag2idx.items()}
         self.dev_test_idx2tag = dev_test_idx2tag
+        self.dev_test_idx2slot = {v:k for k,v in dev_test_slot2idx.items()}
+        
+
+
         self.train_tag2idx, self.dev_test_tag2idx = train_tag2idx, dev_test_tag2idx
         
-        self.slt = Model.SlotFilling(params, train_tag2idx, dev_test_tag2idx, bert_path=params.bert_path,device=params.device)
+        self.slt = Model.SlotFilling(params, train_slot2idx, dev_test_slot2idx, bert_path=params.bert_path,device=params.device)
         if premodel is not None:
 
             self.slt.Proj_W.data = premodel["projection_matrix"]["Proj"]
@@ -84,36 +88,40 @@ class Main:
             sim_loss_list = []
             mse_loss_list = []
 
-            for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len, coarse_label, bin_tag) in pbar:
+            for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len, coarse_label, bin_tag, ground_slot) in pbar:
+
+                ground_slot = ground_slot.to(params.device)
                 bin_tag = bin_tag.to(params.device)
                 y = y.to(params.device)
                 coarse_label = coarse_label.to(params.device)
                 bsz, max_len = x.size(0), x.size(1)
                 x = x.to(params.device)
                 pad_heads = pad_heads.to(params.device)
-                coarse_logits, final_logits, bert_out_reps, reps = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, domains=domains)
+                coarse_logits, final_logits = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, domains=domains)
 
+       
 
                 self.optimizer.zero_grad()
-                loss_sim = self.loss_func(final_logits.view(bsz*max_len, -1), y.view(-1))
+                loss_sim = self.loss_func(final_logits.view(bsz*max_len, -1), ground_slot.view(-1))
 
-                loss_coarse = self.loss_func(coarse_logits.view(bsz*max_len, -1), coarse_label.view(-1))
+                loss_coarse = self.loss_func(coarse_logits.view(bsz*max_len, -1), bin_tag.view(-1))
 
-                mseloss = self.mse_loss_func(reps, bert_out_reps)
+                # mseloss = self.mse_loss_func(reps, bert_out_reps)
 
-                loss = loss_sim + loss_coarse + mseloss
+                loss = loss_sim + loss_coarse 
+                #\+ mseloss
 
                 loss.backward()
                 total_loss_list.append(loss.item())
                 coarse_loss_list.append(loss_coarse.item())
                 sim_loss_list.append(loss_sim.item())
-                mse_loss_list.append(mseloss.item())
+                # mse_loss_list.append(mseloss.item())
 
                 self.optimizer.step()
-                pbar.set_description("(Epoch {}) Coarse LOSS:{:.4f} MSE LOSS:{:.4f} Sim LOSS:{:.4f} Total Loss".format \
+                pbar.set_description("(Epoch {}) Coarse LOSS:{:.4f}  Sim LOSS:{:.4f} Total Loss".format \
                 ((epoch+1), \
                     np.mean(coarse_loss_list), \
-                    np.mean(mse_loss_list), \
+                    
                     np.mean(sim_loss_list), \
                     np.mean(total_loss_list)
                     ))
@@ -150,11 +158,7 @@ class Main:
    
     def do_test(self, data_gen):
 
-
-
-
-
-        self.slt.eval()
+        self.slt.eval()                                         
         pbar = tqdm(enumerate(data_gen), total=len(data_gen))
         gold = []
         pred = []
@@ -164,16 +168,27 @@ class Main:
         coarse_gold = []
         coarse_pred = []
 
-        for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len, coarse_label, bin_tag) in pbar:
+
+       
+
+        for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len, coarse_label, bin_tag, ground_slot) in pbar:
+            ground_slot = ground_slot.to(params.device)
             y = y.to(params.device)
             bsz, max_len = x.size(0), x.size(1)
             x = x.to(params.device)
             pad_heads = pad_heads.to(params.device)
-            coarse_logits, final_logits, bert_out_reps, reps = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, iseval = True, domains=domains)
-            score = torch.softmax(final_logits, -1)
-            score = score.argmax(-1)
+            coarse_logits, fine_logits = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, iseval = True, domains=domains)
+            
+            
             coarse_score = torch.softmax(coarse_logits, -1)
             coarse_score = coarse_score.argmax(-1)
+
+
+            fine_score = torch.softmax(fine_logits, -1)
+            fine_score = fine_score.argmax(-1)
+
+
+
 
             for j in range(len(pad_heads)):
                 _pred = []
@@ -184,7 +199,19 @@ class Main:
 
                 for k in range(1, seq_len[j] - 1):
                     if pad_heads[j][k].item() == 1:
-                        pred_fine_tag = self.dev_test_idx2tag[score[j][k].item()]
+
+                        pred_coarse_tag = bins_labels[coarse_score[j][k].item()]
+                        
+                        pred_fine_tag = self.dev_test_idx2slot[fine_score[j][k].item()]
+
+                        if pred_coarse_tag in ['pad', 'O']:
+                            pred_fine_tag = 'O'
+                        elif pred_fine_tag in ['<PAD>','O']:
+                            pred_fine_tag = 'O'
+                        else:
+                            pred_fine_tag = pred_coarse_tag[:2] + pred_fine_tag
+
+
                         gold_fine_tag = self.dev_test_idx2tag[y[j][k].item()]
 
                         _pred.append(pred_fine_tag)
@@ -192,7 +219,7 @@ class Main:
 
 
                         _coarse_gold.append(fine2coarsetag[gold_fine_tag])
-                        _coarse_pred.append(fine2coarsetag[pred_fine_tag])
+                        _coarse_pred.append(pred_coarse_tag)
                         
 
 
@@ -204,6 +231,14 @@ class Main:
                 coarse_pred.append(_coarse_pred)
         
         
+        # print(coarse_gold)
+        # print(coarse_pred)
+
+        # print('\n\n\n\n')
+        # print(gold)
+        # print(pred)
+
+
 
         
         

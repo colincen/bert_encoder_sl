@@ -28,6 +28,7 @@ class LabelEmbeddingFactory:
     def BertEncoderAve(self, tag2idx, tokenizer, encoder):
         emb = []
         dim = 768
+
         idx2tag = {v:k for k, v in tag2idx.items()}
         tag_idx_pair = [(i, idx2tag[i]) for i in range(len(idx2tag))]
         for idx, tag in tag_idx_pair:
@@ -39,6 +40,7 @@ class LabelEmbeddingFactory:
                 self.coarse2vec[self.fine2coarse[tag]], 
                 np.zeros(dim, dtype=np.float32)), 0)
 
+
             elif tag == "O":
                 # tag_emb = np.zeros(dim+3+9, dtype=np.float32)
                 # tag_emb[2] = 1
@@ -46,9 +48,10 @@ class LabelEmbeddingFactory:
                 self.coarse2vec[self.fine2coarse[tag]], 
                 np.zeros(dim, dtype=np.float32)), 0)
 
+
             ####################
             else:
-                slot = tag[2:]
+                slot = tag
                 #########
                 # 这里可以把slot改成description试试
                 tokens = tokenizer.encode(slot)
@@ -57,22 +60,22 @@ class LabelEmbeddingFactory:
                 tokens = tokens.unsqueeze(0)
                 reps = encoder(tokens)[0].mean(1).squeeze()
                 reps = reps.detach().cpu().numpy()
-                if tag[0] == "B":
-                    reps = np.concatenate((np.array([1,0,0], dtype=np.float32), 
-                    self.coarse2vec[self.fine2coarse[tag[2:]]],
+                
+                tag_emb = np.concatenate((np.array([1,0,0], dtype=np.float32), 
+                    self.coarse2vec[self.fine2coarse[tag]],
                     reps), 0)
                     
 
 
-                elif tag[0] == "I":
-                    reps = np.concatenate((np.array([0,1,0], dtype=np.float32), 
-                    self.coarse2vec[self.fine2coarse[tag[2:]]],
-                    reps), 0)
                 
 
-                tag_emb = reps
+            tag_emb = np.reshape(tag_emb, (1, 768+7))
 
-            emb.append(tag_emb)
+            emb.append(np.reshape(tag_emb, (1, 768+7)))
+        
+        
+        emb = np.concatenate(emb,  0)
+
         
         return torch.tensor(emb)
 
@@ -277,7 +280,7 @@ class ProjMartrix(nn.Module):
             yield x,y
 
 class SlotFilling(nn.Module):
-    def __init__(self, params, train_tag2idx, dev_test_tag2idx, bert_path, device):
+    def __init__(self, params, train_slot2idx, dev_test_slot2idx, bert_path, device):
         super(SlotFilling, self).__init__()
         self.tokenizer = BertTokenizer.from_pretrained(bert_path)
         self.encoder = BertModel.from_pretrained(bert_path)
@@ -285,25 +288,25 @@ class SlotFilling(nn.Module):
         self.params = params
         labelembedding = LabelEmbeddingFactory()
         if params.emb_src == 'Bert':
-            self.train_labelembedding = labelembedding.BertEncoderAve(train_tag2idx,self.tokenizer,self.encoder).to(device)
-            self.dev_test_labelembedding = labelembedding.BertEncoderAve(dev_test_tag2idx, self.tokenizer ,self.encoder).to(device)
+            self.train_labelembedding = labelembedding.BertEncoderAve(train_slot2idx,self.tokenizer,self.encoder).to(device)
+            self.dev_test_labelembedding = labelembedding.BertEncoderAve(dev_test_slot2idx, self.tokenizer ,self.encoder).to(device)
         elif params.emb_src == 'Glove':
-            self.train_labelembedding = labelembedding.GloveEmbAve(params.emb_file, train_tag2idx).to(device)
-            self.dev_test_labelembedding = labelembedding.GloveEmbAve(params.emb_file, dev_test_tag2idx).to(device)
-        self.sim_func = Similarity(size=(768, 768 + 3 + 4), type='mul')
-        self.sim_func2 = Similarity(size=(768, 300 + 3), type='mul')
+            self.train_labelembedding = labelembedding.GloveEmbAve(params.emb_file, train_slot2idx).to(device)
+            self.dev_test_labelembedding = labelembedding.GloveEmbAve(params.emb_file, dev_test_slot2idx).to(device)
+        self.sim_func_fine = Similarity(size=(768, 768), type='mul')
+        
+        self.sim_fun_coarse = Similarity(size=(7,7), type='mul')
+
+
         self.Proj_W = nn.Parameter(torch.empty(768, 300))
         self.droupout = nn.Dropout(params.dropout)
         torch.nn.init.uniform_(self.Proj_W, -0.1, 0.1)
 
 
-        self.coarse_emb = nn.Linear(768, 768)
-        self.fc_for_coarse = nn.Linear(768, 9)
-
-        self.fine_emb = nn.Linear(768, 768)
+        self.coarse_emb = nn.Linear(768, 7)
+        # self.fine_emb = nn.Linear(768, 768)
 
 
-        self.fc_for_concat_emb = nn.Linear(768 * 2, 768)
 
 
 
@@ -322,22 +325,19 @@ class SlotFilling(nn.Module):
             labelembedding = self.dev_test_labelembedding
 
         reps = bert_out_reps
+
+        prefix, suffix = torch.split(labelembedding, [7, 768], dim=-1)
+
+
         coarse_reps = self.coarse_emb(reps)
-        coarse_logits = self.fc_for_coarse(reps)
+        coarse_logits = self.sim_fun_coarse(coarse_reps, prefix)
 
-        reps = self.fine_emb(reps)
 
-        reps = self.fc_for_concat_emb(torch.cat((coarse_reps, reps), -1))
 
-        if self.params.proj == 'no':
-            final_logits = self.sim_func(reps, labelembedding)
-        else:
-            prefix ,suffix = torch.split(labelembedding, [3, 768], dim=-1)
-            suffix_embedding = torch.matmul(suffix, self.Proj_W)
-            labelembedding = torch.cat((prefix, suffix_embedding), dim=-1)
-            final_logits = self.sim_func2(reps, labelembedding)
+        # fine_reps = self.fine_emb(reps)
+        fine_logits = self.sim_func_fine(reps, suffix)
 
         
-        return coarse_logits, final_logits, bert_out_reps, reps
+        return coarse_logits, fine_logits
 
 

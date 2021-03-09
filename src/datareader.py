@@ -4,7 +4,7 @@ import torch
 
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
-slot_list = ['<PAD>','playlist', 'music_item', 'geographic_poi', 'facility', 
+slot_list = ['<PAD>','O','playlist', 'music_item', 'geographic_poi', 'facility', 
 'movie_name', 'location_name', 'restaurant_name', 'track', 'restaurant_type', 
 'object_part_of_series_type', 'country', 'service', 'poi', 'party_size_description',
 'served_dish', 'genre', 'current_location', 'object_select', 'album', 'object_name',
@@ -56,6 +56,7 @@ domain2slot = {
 coarse = [ 'pad', 'O', 'person', 'location', 'special_name', 'common_name', 'number', 'direction', 'others']
 bins_labels = [ 'pad', 'O', 'B-person','I-person' , 'B-location', 'I-location', 'B-special_name', 'I-special_name', 'B-common_name','I-common_name', 'B-number','I-number', 'B-direction','I-direction', 'B-others','I-others']
 
+
 father_son_slot={
     'pad':['<PAD>'],
     'O':['O'],
@@ -73,7 +74,7 @@ father_son_slot={
 
 
 class NerDataset(Dataset):
-    def __init__(self, raw_data, tag2idx ,bert_path):
+    def __init__(self, raw_data, tag2idx ,slot2idx, bert_path):
         self.tokenizer = BertTokenizer.from_pretrained(bert_path)
         sents, tags, domains = [], [], []
         for entry in raw_data:
@@ -85,13 +86,14 @@ class NerDataset(Dataset):
             for t in v:
                 self.fine2coarse[t] = k
 
-        self.sents, self.tags, self.domains, self.tag2idx = sents, tags, domains, tag2idx
+        self.sents, self.tags, self.domains, self.tag2idx,self.slot2idx = sents, tags, domains, tag2idx, slot2idx
     
     def __len__(self):
         return len(self.sents)
     
     def __getitem__(self, idx):
         tag2idx = self.tag2idx
+        slot2idx = self.slot2idx
         words, tags, domains = self.sents[idx], self.tags[idx], self.domains[idx]
 
 
@@ -101,6 +103,7 @@ class NerDataset(Dataset):
         x, y = [], []
         coarse_labels = []
         bin_tags = []
+        ground_slots = []
         is_heads = []
         for w, t in zip(words, tags):
             tokens = self.tokenizer.tokenize(w) if w not in ("[CLS]", "[SEP]") else [w]
@@ -113,27 +116,39 @@ class NerDataset(Dataset):
 
             coarse_label = []
             bin_tag = []
+            g_slot = []
 
             for lab in t:
                 if lab in ['O','<PAD>']:
+                    g_slot.append(slot2idx[lab])
                     coarse_label.append(coarse.index(self.fine2coarse[lab]))
                     bin_tag.append(bins_labels.index(self.fine2coarse[lab]))
 
                 else:
                     slot = lab[2:]
+                    g_slot.append(slot2idx[slot])
                     coarse_label.append(coarse.index(self.fine2coarse[slot]))
                     bin_tag.append(bins_labels.index(lab[:2] + self.fine2coarse[slot]))
             
 
+            ground_slots.extend(g_slot)
             x.extend(xx)
             is_heads.extend(is_head)
             y.extend(yy)
             coarse_labels.extend(coarse_label)
             bin_tags.extend(bin_tag)
 
+        idx2tag  = {v:k for k,v in tag2idx.items()}
+        idx2slot = {v:k for k,v in slot2idx.items()}
+        # print(y)
+        # print([idx2tag[y[i]] for i in range(len(y))])
+        # print(ground_slots)
+        # print([idx2slot[ground_slots[i]] for i in range(len(ground_slots))])
+        # print('-'*20)
 
 
-        assert len(x) == len(y) == len(is_heads) == len(coarse_labels) == len(bin_tags)
+
+        assert len(x) == len(y) == len(is_heads) == len(coarse_labels) == len(bin_tags) == len(ground_slots)
 
 
 
@@ -143,7 +158,7 @@ class NerDataset(Dataset):
         words = " ".join(words)
         tags = " ".join(tags)
 
-        return words, x, is_heads, tags, y, domains, seq_len, coarse_labels, bin_tags
+        return words, x, is_heads, tags, y, domains, seq_len, coarse_labels, bin_tags, ground_slots
 
 def read_file(fpath):
     raw_data = {}
@@ -173,6 +188,7 @@ def pad(batch):
     domains = f(5)
     coarse_labels = f(7)
     bin_tags = f(8)
+    ground_slots = f(9)
     maxlen = np.array(seqlens).max()
 
 
@@ -182,16 +198,22 @@ def pad(batch):
     heads = f(2 ,maxlen)
     pad_coarse_labels = f(7, maxlen)
     pad_bin_tags = f(8, maxlen)
-
+    ground_slots = f(9, maxlen)
     f = torch.LongTensor
 
-    return words, f(x), is_heads, f(heads), tags, f(y), domains, seqlens, f(pad_coarse_labels), f(pad_bin_tags)
+    return words, f(x), is_heads, f(heads), tags, f(y), domains, seqlens, f(pad_coarse_labels), f(pad_bin_tags), f(ground_slots)
 
 
 def get_dataloader(tgt_domain, batch_size, fpath, bert_path):
     raw_data = read_file(fpath)
     train_tag2idx = {"<PAD>" : 0, "O":1}
     dev_test_tag2idx = {"<PAD>" : 0, "O":1}
+
+
+    train_slot2idx = {"<PAD>" : 0, "O":1}
+    dev_test_slot2idx = {"<PAD>" : 0, "O":1}
+
+
     train_data = []
     dev_data = []
     test_data = []
@@ -200,6 +222,9 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path):
         if k == tgt_domain:
             test_data.extend(raw_data[k])
             for slot in v:
+                if slot not in dev_test_slot2idx.keys():
+                    dev_test_slot2idx[slot] = len(dev_test_slot2idx)
+
                 _B = "B-" + slot
                 if _B not in dev_test_tag2idx.keys() and _B in y_set:
                     dev_test_tag2idx[_B] = len(dev_test_tag2idx)
@@ -209,6 +234,10 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path):
         else:
             train_data.extend(raw_data[k])
             for slot in v:
+
+                if slot not in train_slot2idx.keys():
+                    train_slot2idx[slot] = len(train_slot2idx)
+
                 _B = "B-" + slot
                 if _B not in train_tag2idx.keys() and _B in y_set:
                     train_tag2idx[_B] = len(train_tag2idx)
@@ -225,14 +254,14 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path):
     dev_data = test_data[:500]
     test_data = test_data[500:]
 
-    dataset_tr = NerDataset(raw_data=train_data, tag2idx=train_tag2idx, bert_path=bert_path)
-    dataset_val = NerDataset(raw_data=dev_data, tag2idx=dev_test_tag2idx, bert_path=bert_path)    
-    dataset_test = NerDataset(raw_data=test_data, tag2idx=dev_test_tag2idx, bert_path=bert_path)    
+    dataset_tr = NerDataset(raw_data=train_data, tag2idx=train_tag2idx, slot2idx=train_slot2idx,  bert_path=bert_path)
+    dataset_val = NerDataset(raw_data=dev_data, tag2idx=dev_test_tag2idx,slot2idx=dev_test_slot2idx,  bert_path=bert_path)    
+    dataset_test = NerDataset(raw_data=test_data, tag2idx=dev_test_tag2idx, slot2idx=dev_test_slot2idx, bert_path=bert_path)    
    
     dataloader_tr = DataLoader(dataset=dataset_tr, batch_size=batch_size, shuffle=True, collate_fn=pad)
     dataloader_val = DataLoader(dataset=dataset_val, batch_size=batch_size, shuffle=False, collate_fn=pad)
     dataloader_test = DataLoader(dataset=dataset_test, batch_size=batch_size, shuffle=False, collate_fn=pad)
 
-    return dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx
+    return dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx, train_slot2idx, dev_test_slot2idx
 
 
