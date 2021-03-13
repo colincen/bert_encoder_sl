@@ -234,9 +234,9 @@ class Main:
         # print(coarse_gold)
         # print(coarse_pred)
 
-        # print('\n\n\n\n')
-        # print(gold)
-        # print(pred)
+        print('\n\n\n\n')
+        print(gold[:100])
+        print(pred[:100])
 
 
 

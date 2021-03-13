@@ -314,7 +314,6 @@ class SlotFilling(nn.Module):
 
 
     def forward(self, x, heads, seq_len, domains, iseval=False, y=None):
-        
         attention_mask = (x != 0).byte().to(self.device)
         reps = self.encoder(x, attention_mask=attention_mask)[0]
         bert_out_reps = self.droupout(reps)
