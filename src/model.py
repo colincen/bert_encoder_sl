@@ -15,15 +15,22 @@ class LabelEmbeddingFactory:
             for t in v:
                 self.fine2coarse[t] = k
         self.coarse2vec = {}
-        self.coarse2vec['pad'] = np.zeros(4, dtype = np.float32)
-        self.coarse2vec['O'] = np.array([0,0,0,1], dtype = np.float32)
-        self.coarse2vec['person'] = np.array([0,0,1,0], dtype = np.float32)
-        self.coarse2vec['location'] = np.array([0,0,1,1], dtype = np.float32)
-        self.coarse2vec['special_name'] = np.array([0,1,0,0], dtype = np.float32)
-        self.coarse2vec['common_name'] = np.array([0,1,0,1], dtype = np.float32)
-        self.coarse2vec['number'] = np.array([0,1,1,0], dtype = np.float32)
-        self.coarse2vec['direction'] = np.array([0,1,1,1], dtype = np.float32)
-        self.coarse2vec['others'] = np.array([1,0,0,0], dtype = np.float32)        
+        self.coarse2vec['pad'] = np.zeros(9, dtype = np.float32)
+        self.coarse2vec['O'] = np.zeros(9, dtype = np.float32)
+        self.coarse2vec['person'] = np.zeros(9, dtype = np.float32)
+        self.coarse2vec['location'] = np.zeros(9, dtype = np.float32)
+        self.coarse2vec['special_name'] = np.zeros(9, dtype = np.float32)
+        self.coarse2vec['common_name'] = np.zeros(9, dtype = np.float32)
+        self.coarse2vec['number'] = np.zeros(9, dtype = np.float32)
+        self.coarse2vec['direction'] = np.zeros(9, dtype = np.float32)
+        self.coarse2vec['others'] = np.zeros(9, dtype = np.float32)
+
+        cnt = 0
+        for k,v in self.coarse2vec.items():
+            if k != 'pad' :
+                self.coarse2vec[k][cnt] = 1
+                cnt += 1
+        print(self.coarse2vec)
 
     def BertEncoderAve(self, tag2idx, tokenizer, encoder):
         emb = []
@@ -290,7 +297,7 @@ class SlotFilling(nn.Module):
         elif params.emb_src == 'Glove':
             self.train_labelembedding = labelembedding.GloveEmbAve(params.emb_file, train_tag2idx).to(device)
             self.dev_test_labelembedding = labelembedding.GloveEmbAve(params.emb_file, dev_test_tag2idx).to(device)
-        self.sim_func = Similarity(size=(768, 768 + 3 + 4), type='mul')
+        self.sim_func = Similarity(size=(768, 768 + 3 + 9), type='mul')
         self.sim_func2 = Similarity(size=(768, 300 + 3), type='mul')
         self.Proj_W = nn.Parameter(torch.empty(768, 300))
         self.droupout = nn.Dropout(params.dropout)

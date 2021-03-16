@@ -131,7 +131,7 @@ class Main:
         self.logger.info("best f1 in test: %.4f" % best_test_f1)
         json_file = os.path.join(self.params.dump_path, "slot_f1.json")
         with open(json_file,'w') as f:
-            f.write(json.dumps(di_test) + '\n')
+            f.write(json.dumps(best_slot_f1) + '\n')
         f.close()
 
     def finetag_to_coarsetag(self):
