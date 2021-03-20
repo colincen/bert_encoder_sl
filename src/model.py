@@ -8,6 +8,7 @@ from collections import Counter
 from .datareader import slot2desp, father_son_slot, coarse
 import torch.nn.functional as F
 from .crf import CRF
+from .crf_labelembedding import CRF as CRF_labelembedding
 
 class LabelEmbeddingFactory:
     def __init__(self):
@@ -290,12 +291,19 @@ class SlotFilling(nn.Module):
         self.params = params
         self.crf = CRF(num_tags=16, batch_first=True)
         labelembedding = LabelEmbeddingFactory()
-        if params.emb_src == 'Bert':
-            self.train_labelembedding = labelembedding.BertEncoderAve(train_tag2idx,self.tokenizer,self.encoder).to(device)
-            self.dev_test_labelembedding = labelembedding.BertEncoderAve(dev_test_tag2idx, self.tokenizer ,self.encoder).to(device)
-        elif params.emb_src == 'Glove':
-            self.train_labelembedding = labelembedding.GloveEmbAve(params.emb_file, train_tag2idx).to(device)
-            self.dev_test_labelembedding = labelembedding.GloveEmbAve(params.emb_file, dev_test_tag2idx).to(device)
+
+        self.train_labelembedding = labelembedding.BertEncoderAve(train_tag2idx,self.tokenizer,self.encoder).to(device)
+    
+        self.dev_test_labelembedding = labelembedding.BertEncoderAve(dev_test_tag2idx, self.tokenizer ,self.encoder).to(device)
+    
+        self.crf_labemb = CRF_labelembedding(train_labelEmbedding=self.train_labelembedding, \
+                                                dev_test_labelEmbedding=self.dev_test_labelembedding, \
+                                            
+                                                 train_num_tags=self.train_labelembedding.size(0), \
+                                                     dev_test_num_tags = self.dev_test_labelembedding.size(0),\
+                                                     batch_first = True)
+
+        
         self.sim_func = Similarity(size=(768, 768 + 3 + 9), type='mul')
         self.sim_func2 = Similarity(size=(768, 300 + 3), type='mul')
         self.Proj_W = nn.Parameter(torch.empty(768, 300))
@@ -324,6 +332,7 @@ class SlotFilling(nn.Module):
         labelembedding = None
         if not iseval:
             labelembedding = self.train_labelembedding
+            
         else:
             labelembedding = self.dev_test_labelembedding
 
@@ -334,22 +343,29 @@ class SlotFilling(nn.Module):
         if not iseval:
             coarse_loss = -self.crf(emissions=coarse_logits, tags=bin_tag,
             mask=attention_mask,reduction='mean')
+            reps = self.fine_emb(reps)
+            reps = self.fc_for_concat_emb(torch.cat((coarse_reps, reps), -1))
+            logits = self.sim_func(reps, labelembedding)
+            emb_loss = -self.crf_labemb(logits, y, attention_mask, 'mean')
+
         else:
             coarse_loss = torch.tensor(0, device=self.device)
+            emb_loss = torch.tensor(0, device=self.device)
+            reps = self.fine_emb(reps)
+            reps = self.fc_for_concat_emb(torch.cat((coarse_reps, reps), -1))
+            logits = self.sim_func(reps, labelembedding)
 
-        reps = self.fine_emb(reps)
 
-        reps = self.fc_for_concat_emb(torch.cat((coarse_reps, reps), -1))
 
-        if self.params.proj == 'no':
-            final_logits = self.sim_func(reps, labelembedding)
-        else:
-            prefix ,suffix = torch.split(labelembedding, [3, 768], dim=-1)
-            suffix_embedding = torch.matmul(suffix, self.Proj_W)
-            labelembedding = torch.cat((prefix, suffix_embedding), dim=-1)
-            final_logits = self.sim_func2(reps, labelembedding)
+        # reps = self.fine_emb(reps)
+
+        # reps = self.fc_for_concat_emb(torch.cat((coarse_reps, reps), -1))
+
+        # if self.params.proj == 'no':
+        #     final_logits = self.sim_func(reps, labelembedding)
+
 
         
-        return coarse_logits, final_logits, bert_out_reps, reps, coarse_loss
+        return coarse_logits, logits, bert_out_reps, reps, coarse_loss, emb_loss
 
 

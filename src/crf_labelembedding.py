@@ -30,19 +30,21 @@ class CRF(nn.Module):
     .. _Viterbi algorithm: https://en.wikipedia.org/wiki/Viterbi_algorithm
     """
 
-    def __init__(self, labelEmbedding, num_tags: int, batch_first: bool = False) -> None:
-        if num_tags <= 0:
+    def __init__(self, train_labelEmbedding, dev_test_labelEmbedding, train_num_tags: int,dev_test_num_tags: int, batch_first: bool = False) -> None:
+        if train_num_tags <= 0 or dev_test_num_tags <= 0:
             raise ValueError(f'invalid number of tags: {num_tags}')
         super().__init__()
-        self.num_tags = num_tags
+        self.train_num_tags = train_num_tags
+        self.dev_test_num_tags = dev_test_num_tags
         self.batch_first = batch_first
-        self.start_transitions = nn.Parameter(torch.empty(labelEmbedding.size(1)))
-        self.end_transitions = nn.Parameter(torch.empty(labelEmbedding.size(1)))
-        self.transitions = nn.Parameter(torch.empty(labelEmbedding.size(1), labelEmbedding.size(1)))
-        self.labelembedding = CRF.buildCRFLabelEmbedding(labelEmbedding)
+        self.start_transitions = nn.Parameter(torch.empty(train_labelEmbedding.size(1)))
+        self.end_transitions = nn.Parameter(torch.empty(train_labelEmbedding.size(1)))
+        self.transitions = nn.Parameter(torch.empty(train_labelEmbedding.size(1), train_labelEmbedding.size(1)))
+        self.labelembedding_train = CRF.buildCRFLabelEmbedding(train_labelEmbedding)
+        self.labelembedding_dev_test = CRF.buildCRFLabelEmbedding(dev_test_labelEmbedding)
+        self.num_tags = None
+        self.labelembedding = None
         self.reset_parameters()
-
-
     @staticmethod
     def buildCRFLabelEmbedding(embedding):
         return nn.Embedding.from_pretrained(embedding)
@@ -64,7 +66,7 @@ class CRF(nn.Module):
             emissions: torch.Tensor,
             tags: torch.LongTensor,
             mask: Optional[torch.ByteTensor] = None,
-            reduction: str = 'sum',
+            reduction: str = 'sum'
     ) -> torch.Tensor:
         """Compute the conditional log likelihood of a sequence of tags given emission scores.
         Args:
@@ -85,6 +87,9 @@ class CRF(nn.Module):
             reduction is ``none``, ``()`` otherwise.
         """
 
+        self.labelembedding= self.labelembedding_train
+        self.num_tags = self.train_num_tags
+
         self._validate(emissions, tags=tags, mask=mask)
         if reduction not in ('none', 'sum', 'mean', 'token_mean'):
             raise ValueError(f'invalid reduction: {reduction}')
@@ -95,6 +100,7 @@ class CRF(nn.Module):
             emissions = emissions.transpose(0, 1)
             tags = tags.transpose(0, 1)
             mask = mask.transpose(0, 1)
+
 
         # shape: (batch_size,)
         numerator = self._compute_score(emissions, tags, mask)
@@ -125,6 +131,8 @@ class CRF(nn.Module):
             List of list containing the best tag sequence for each batch.
         """
 
+        self.labelembedding=self.labelembedding_dev_test
+        self.num_tags=self.dev_test_num_tags
         self._validate(emissions, mask=mask)
         if mask is None:
             mask = emissions.new_ones(emissions.shape[:2], dtype=torch.uint8)
@@ -180,6 +188,8 @@ class CRF(nn.Module):
 
         # Start transition score and first emission
         # shape: (batch_size,)
+
+
 
         emb_t = torch.transpose(self.labelembedding(tags[0]), 0, 1)
         score = torch.matmul(torch.matmul(self.start_transitions, self.transitions), emb_t)

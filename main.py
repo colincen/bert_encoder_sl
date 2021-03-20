@@ -92,11 +92,12 @@ class Main:
                 bsz, max_len = x.size(0), x.size(1)
                 x = x.to(params.device)
                 pad_heads = pad_heads.to(params.device)
-                coarse_logits, final_logits, bert_out_reps, reps, loss_coarse = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, bin_tag=bin_tag, domains=domains)
+                coarse_logits, final_logits, bert_out_reps, reps, loss_coarse, loss_sim = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, bin_tag=bin_tag, domains=domains)
 
 
                 self.optimizer.zero_grad()
-                loss_sim = self.loss_func(final_logits.view(bsz*max_len, -1), y.view(-1))
+
+                # loss_sim = self.loss_func(final_logits.view(bsz*max_len, -1), y.view(-1))
 
                 # loss_coarse = self.loss_func(coarse_logits.view(bsz*max_len, -1), bin_tag.view(-1))
 
@@ -170,12 +171,14 @@ class Main:
             bsz, max_len = x.size(0), x.size(1)
             x = x.to(params.device)
             pad_heads = pad_heads.to(params.device)
-            coarse_logits, final_logits, bert_out_reps, reps, loss_holder = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, iseval = True, domains=domains)
-            score = torch.softmax(final_logits, -1)
-            score = score.argmax(-1)
+            coarse_logits, final_logits, bert_out_reps, reps, loss_holder, emb_loss_holder = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, iseval = True, domains=domains)
+            # score = torch.softmax(final_logits, -1)
+            # score = score.argmax(-1)
 
+            attention_mask = (x != 0).byte().to(params.device)
 
-            coarse_score, best_list = self.slt.crf.decode(coarse_logits)
+            coarse_score, best_list = self.slt.crf.decode(coarse_logits, attention_mask)
+            emb_list  = self.slt.crf_labemb.decode(final_logits, attention_mask)
             # print(coarse_score.size())
             # coarse_score = coarse_score.argmax(-1)
             # print(coarse_score.size())
@@ -191,7 +194,8 @@ class Main:
 
                 for k in range(1, seq_len[j] - 1):
                     if pad_heads[j][k].item() == 1:
-                        pred_fine_tag = self.dev_test_idx2tag[score[j][k].item()]
+                        pred_fine_tag = self.dev_test_idx2tag[emb_list[j][k]]
+                        
                         gold_fine_tag = self.dev_test_idx2tag[y[j][k].item()]
 
                         _pred.append(pred_fine_tag)
@@ -200,6 +204,23 @@ class Main:
 
                         # _coarse_gold.append(fine2coarsetag[gold_fine_tag])
                         # _coarse_pred.append(fine2coarsetag[pred_fine_tag])
+
+                        if bins_labels[bin_tag[j][k].item()] == 'pad':
+                            _coarse_gold.append('O')
+                        else:      
+                            _coarse_gold.append(bins_labels[bin_tag[j][k].item()])
+
+
+
+                        if bins_labels[best_list[j][k]] == 'pad':
+                            _coarse_pred.append('O')
+                        else:      
+                            _coarse_pred.append(bins_labels[best_list[j][k]])
+
+
+
+
+
 
                         if bins_labels[bin_tag[j][k].item()] == 'pad':
                             _coarse_gold.append('O')
