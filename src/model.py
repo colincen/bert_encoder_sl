@@ -7,6 +7,7 @@ import random
 from collections import Counter
 from .datareader import slot2desp, father_son_slot, coarse
 import torch.nn.functional as F
+from .crf import CRF
 
 class LabelEmbeddingFactory:
     def __init__(self):
@@ -137,9 +138,6 @@ class Similarity(nn.Module):
             reps = torch.matmul(reps, emb.transpose(0,1))
             
             return reps
-
-class CRF:
-    pass
 
 class ProjMartrix(nn.Module):
     def __init__(self, params, dataloader_tr):
@@ -290,6 +288,7 @@ class SlotFilling(nn.Module):
         self.encoder = BertModel.from_pretrained(bert_path)
         self.device = device
         self.params = params
+        self.crf = CRF(num_tags=16, batch_first=True)
         labelembedding = LabelEmbeddingFactory()
         if params.emb_src == 'Bert':
             self.train_labelembedding = labelembedding.BertEncoderAve(train_tag2idx,self.tokenizer,self.encoder).to(device)
@@ -305,7 +304,7 @@ class SlotFilling(nn.Module):
 
 
         self.coarse_emb = nn.Linear(768, 768)
-        self.fc_for_coarse = nn.Linear(768, 9)
+        self.fc_for_coarse = nn.Linear(768, 16)
 
         self.fine_emb = nn.Linear(768, 768)
 
@@ -317,7 +316,7 @@ class SlotFilling(nn.Module):
 
 
 
-    def forward(self, x, heads, seq_len, domains, iseval=False, y=None):
+    def forward(self, x, heads, seq_len, domains, iseval=False, y=None, bin_tag=None):
         
         attention_mask = (x != 0).byte().to(self.device)
         reps = self.encoder(x, attention_mask=attention_mask)[0]
@@ -331,6 +330,12 @@ class SlotFilling(nn.Module):
         reps = bert_out_reps
         coarse_reps = self.coarse_emb(reps)
         coarse_logits = self.fc_for_coarse(reps)
+        
+        if not iseval:
+            coarse_loss = -self.crf(emissions=coarse_logits, tags=bin_tag,
+            mask=attention_mask,reduction='mean')
+        else:
+            coarse_loss = torch.tensor(0, device=self.device)
 
         reps = self.fine_emb(reps)
 
@@ -345,6 +350,6 @@ class SlotFilling(nn.Module):
             final_logits = self.sim_func2(reps, labelembedding)
 
         
-        return coarse_logits, final_logits, bert_out_reps, reps
+        return coarse_logits, final_logits, bert_out_reps, reps, coarse_loss
 
 

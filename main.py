@@ -85,19 +85,20 @@ class Main:
             mse_loss_list = []
 
             for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len, coarse_label, bin_tag) in pbar:
+
                 bin_tag = bin_tag.to(params.device)
                 y = y.to(params.device)
                 coarse_label = coarse_label.to(params.device)
                 bsz, max_len = x.size(0), x.size(1)
                 x = x.to(params.device)
                 pad_heads = pad_heads.to(params.device)
-                coarse_logits, final_logits, bert_out_reps, reps = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, domains=domains)
+                coarse_logits, final_logits, bert_out_reps, reps, loss_coarse = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, bin_tag=bin_tag, domains=domains)
 
 
                 self.optimizer.zero_grad()
                 loss_sim = self.loss_func(final_logits.view(bsz*max_len, -1), y.view(-1))
 
-                loss_coarse = self.loss_func(coarse_logits.view(bsz*max_len, -1), coarse_label.view(-1))
+                # loss_coarse = self.loss_func(coarse_logits.view(bsz*max_len, -1), bin_tag.view(-1))
 
                 mseloss = self.mse_loss_func(reps, bert_out_reps)
 
@@ -169,11 +170,17 @@ class Main:
             bsz, max_len = x.size(0), x.size(1)
             x = x.to(params.device)
             pad_heads = pad_heads.to(params.device)
-            coarse_logits, final_logits, bert_out_reps, reps = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, iseval = True, domains=domains)
+            coarse_logits, final_logits, bert_out_reps, reps, loss_holder = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, iseval = True, domains=domains)
             score = torch.softmax(final_logits, -1)
             score = score.argmax(-1)
-            coarse_score = torch.softmax(coarse_logits, -1)
-            coarse_score = coarse_score.argmax(-1)
+
+
+            coarse_score, best_list = self.slt.crf.decode(coarse_logits)
+            # print(coarse_score.size())
+            # coarse_score = coarse_score.argmax(-1)
+            # print(coarse_score.size())
+            # coarse_score = torch.softmax(coarse_logits, -1)
+            # coarse_score = coarse_score.argmax(-1)
 
             for j in range(len(pad_heads)):
                 _pred = []
@@ -191,9 +198,20 @@ class Main:
                         _gold.append(gold_fine_tag)
 
 
-                        _coarse_gold.append(fine2coarsetag[gold_fine_tag])
-                        _coarse_pred.append(fine2coarsetag[pred_fine_tag])
-                        
+                        # _coarse_gold.append(fine2coarsetag[gold_fine_tag])
+                        # _coarse_pred.append(fine2coarsetag[pred_fine_tag])
+
+                        if bins_labels[bin_tag[j][k].item()] == 'pad':
+                            _coarse_gold.append('O')
+                        else:      
+                            _coarse_gold.append(bins_labels[bin_tag[j][k].item()])
+
+
+
+                        if bins_labels[best_list[j][k]] == 'pad':
+                            _coarse_pred.append('O')
+                        else:      
+                            _coarse_pred.append(bins_labels[best_list[j][k]])
 
 
 
@@ -204,7 +222,8 @@ class Main:
                 coarse_pred.append(_coarse_pred)
         
         
-
+        # print(coarse_gold)
+        # print(coarse_pred)
         
         
         g = []
