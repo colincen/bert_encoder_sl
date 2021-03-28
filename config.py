@@ -19,6 +19,7 @@ def get_params():
     parser.add_argument("--logger_filename", type=str, default="cross-domain-slu.log")
     parser.add_argument("--dump_path", type=str, default="/data/sh/experiments", help="Experiment saved root path")
     parser.add_argument("--exp_id", type=str, default="1", help="Experiment id")
+    parser.add_argument("--log_file", type=str, default="/home/sh/data/experiments/bert_double_crf")
 
     # adaptation parameters
     parser.add_argument("--epoch", type=int, default=20, help="number of maximum epoch")
@@ -45,6 +46,7 @@ def get_params():
     # parser.add_argument("--visualization_path", type=str, default="/home/sh/data/experiments/vis/")
     # parser.add_argument("--bidirection", default=False, action="store_true", help="Bidirectional lstm")
     parser.add_argument("--lr", type=float, default=1e-4, help="learning rate")
+    parser.add_argument("--gamma", type=float, default=0.1, help="parameter loss")
     # parser.add_argument("--lr_decay", type=float, default=0.5, help="learning rate decay")
     parser.add_argument("--dropout", type=float, default=0.3, help="dropout rate")
     # parser.add_argument("--hidden_dim", type=int, default=200, help="hidden dimension for LSTM")#200

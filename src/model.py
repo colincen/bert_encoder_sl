@@ -367,5 +367,3 @@ class SlotFilling(nn.Module):
 
         
         return coarse_logits, logits, bert_out_reps, reps, coarse_loss, emb_loss
-
-

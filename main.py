@@ -47,12 +47,12 @@ class Main:
         dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path)
         
         premodel = None
-        if (not os.path.exists(os.path.join(self.params.dump_path, "proj.pth"))) and (self.params.proj == 'yes'):
-            self.do_pretrain()
+        # if (not os.path.exists(os.path.join(self.params.dump_path, "proj.pth"))) and (self.params.proj == 'yes'):
+        #     self.do_pretrain()
             
             
-        premodel = torch.load(os.path.join(self.params.dump_path, "proj.pth"), map_location=params.device)
-        self.logger.info("load projection matrix succeed!")
+        # premodel = torch.load(os.path.join(self.params.dump_path, "proj.pth"), map_location=params.device)
+        # self.logger.info("load projection matrix succeed!")
             
 
              
@@ -72,9 +72,12 @@ class Main:
 
         self.slt.to(params.device)
         
+
+
         best_dev_f1 = 0
         best_test_f1 = 0
         best_slot_f1 = None
+        patience = 0
         for epoch in range(params.epoch):
             self.slt.train()
             pbar = tqdm(enumerate(dataloader_tr), total=len(dataloader_tr))
@@ -85,6 +88,8 @@ class Main:
             mse_loss_list = []
 
             for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len, coarse_label, bin_tag) in pbar:
+                
+
 
                 bin_tag = bin_tag.to(params.device)
                 y = y.to(params.device)
@@ -103,7 +108,7 @@ class Main:
 
                 mseloss = self.mse_loss_func(reps, bert_out_reps)
 
-                loss = loss_sim + loss_coarse + mseloss
+                loss = self.params.gamma * (loss_sim + mseloss) + (1 - self.params.gamma) * loss_coarse
 
                 loss.backward()
                 total_loss_list.append(loss.item())
@@ -124,14 +129,20 @@ class Main:
             dev_f1, di_dev = self.do_test(dataloader_val)
             test_f1, di_test = self.do_test(dataloader_test)
             if dev_f1 > best_dev_f1:
+                patience = 0
                 best_dev_f1 = dev_f1
 
                 best_test_f1 = test_f1
                 best_slot_f1 = di_test
+                
+            else:
+                patience += 1
+                if patience > 5:
+                    break
 
-                self.save_model()
+                # self.save_model()
         self.logger.info("best f1 in test: %.4f" % best_test_f1)
-        json_file = os.path.join(self.params.dump_path, "slot_f1.json")
+        json_file = os.path.join(self.params.log_file, str(self.params.exp_id) + "_" + str(self.params.gamma) + ".json")
         with open(json_file,'w') as f:
             f.write(json.dumps(best_slot_f1) + '\n')
         f.close()
@@ -294,8 +305,6 @@ class Main:
         self.model_saved_path = model_saved_path
         self.opti_saved_path = opti_saved_path
           
-
-
 if __name__ == "__main__":
     params = get_params()
     logger = init_experiment(params, params.logger_filename)
