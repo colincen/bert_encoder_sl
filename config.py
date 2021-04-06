@@ -34,6 +34,7 @@ def get_params():
     parser.add_argument("--emb_dim", type=int, default=768, help="embedding dimension") #400
     parser.add_argument("--batch_size", type=int, default=32, help="batch size")
     parser.add_argument("--emb_src", type=str, default='Bert', help='embedding source')
+    parser.add_argument("--n_samples", type=int, default=20, help='few shot samples')
 
 
     # parser.add_argument("--num_binslot", type=int, default=15, help="number of father slot")

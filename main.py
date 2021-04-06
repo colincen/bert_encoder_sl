@@ -20,7 +20,7 @@ class Main:
         self.opti_saved_path = None
 
     def do_pretrain(self):
-        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path)
+        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path, n_samples=params.n_samples)
         premodel = ProjMartrix(params, dataloader_tr)  
         premodel.to(params.device)
         premodel.train()
@@ -44,7 +44,7 @@ class Main:
         torch.save({"projection_matrix" : premodel.state_dict() },proj_saved_path)
 
     def do_train(self):
-        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path)
+        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path, n_samples=params.n_samples)
         
         premodel = None
         # if (not os.path.exists(os.path.join(self.params.dump_path, "proj.pth"))) and (self.params.proj == 'yes'):
@@ -107,8 +107,8 @@ class Main:
                 # loss_coarse = self.loss_func(coarse_logits.view(bsz*max_len, -1), bin_tag.view(-1))
 
                 mseloss = self.mse_loss_func(reps, bert_out_reps)
-
-                loss = self.params.gamma * (loss_sim + mseloss) + (1 - self.params.gamma) * loss_coarse
+                loss = loss_sim + mseloss + loss_coarse
+                # loss = self.params.gamma * (loss_sim + mseloss) + (1 - self.params.gamma) * loss_coarse
 
                 loss.backward()
                 total_loss_list.append(loss.item())
@@ -134,13 +134,13 @@ class Main:
 
                 best_test_f1 = test_f1
                 best_slot_f1 = di_test
-                
+                self.save_model()
             else:
                 patience += 1
                 if patience > 5:
                     break
 
-                # self.save_model()
+                
         self.logger.info("best f1 in test: %.4f" % best_test_f1)
         json_file = os.path.join(self.params.log_file, str(self.params.exp_id) + "_" + str(self.params.gamma) + ".json")
         with open(json_file,'w') as f:

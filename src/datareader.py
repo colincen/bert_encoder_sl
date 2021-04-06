@@ -188,7 +188,8 @@ def pad(batch):
     return words, f(x), is_heads, f(heads), tags, f(y), domains, seqlens, f(pad_coarse_labels), f(pad_bin_tags)
 
 
-def get_dataloader(tgt_domain, batch_size, fpath, bert_path):
+def get_dataloader(tgt_domain, batch_size, fpath, bert_path, n_samples=0):
+
     raw_data = read_file(fpath)
     train_tag2idx = {"<PAD>" : 0, "O":1}
     dev_test_tag2idx = {"<PAD>" : 0, "O":1}
@@ -198,7 +199,7 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path):
 
     for k, v in domain2slot.items():
         if k == tgt_domain:
-            test_data.extend(raw_data[k])
+            test_data.extend(raw_data[k][n_samples:])
             for slot in v:
                 _B = "B-" + slot
                 if _B not in dev_test_tag2idx.keys() and _B in y_set:
@@ -206,6 +207,18 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path):
                 _I = "I-" + slot
                 if _I not in dev_test_tag2idx.keys() and _I in y_set:
                     dev_test_tag2idx[_I] = len(dev_test_tag2idx)
+            
+            train_data.extend(raw_data[k][:n_samples])    
+            
+
+            for slot in v:
+                _B = "B-" + slot
+                if _B not in train_tag2idx.keys() and _B in y_set:
+                    train_tag2idx[_B] = len(train_tag2idx)
+                _I = "I-" + slot
+                if _I not in train_tag2idx.keys() and _I in y_set:
+                    train_tag2idx[_I] = len(train_tag2idx)
+
         else:
             train_data.extend(raw_data[k])
             for slot in v:
@@ -218,11 +231,20 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path):
     
 
 
+    # print(raw_data['AddToPlaylist'][:20])
+
+    # for i in train_data:
+    #     if i[-1] == 'AddToPlaylist':
+    #         print(i[-1])
+
+    # print('-'*20)
     
+
+
+
+
     
-    
-    
-    dev_data = test_data[:500]
+    dev_data = test_data[n_samples:500]
     test_data = test_data[500:]
 
     dataset_tr = NerDataset(raw_data=train_data, tag2idx=train_tag2idx, bert_path=bert_path)
