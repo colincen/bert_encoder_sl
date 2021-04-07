@@ -161,11 +161,7 @@ class Main:
                     res_dict[_I] = "I-" + k 
         return res_dict
    
-    def do_test(self, data_gen):
-
-
-
-
+    def do_test(self, data_gen, badcase=False):
 
         self.slt.eval()
         pbar = tqdm(enumerate(data_gen), total=len(data_gen))
@@ -176,8 +172,9 @@ class Main:
         fine2coarsetag = self.finetag_to_coarsetag()
         coarse_gold = []
         coarse_pred = []
-
+        word_list = []
         for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len, coarse_label, bin_tag) in pbar:
+            word_list.extend(words)
             y = y.to(params.device)
             bsz, max_len = x.size(0), x.size(1)
             x = x.to(params.device)
@@ -253,9 +250,25 @@ class Main:
                 coarse_gold.append(_coarse_gold)
                 coarse_pred.append(_coarse_pred)
         
-        
-        # print(coarse_gold)
-        # print(coarse_pred)
+        if badcase:
+
+
+
+            json_file = os.path.join(self.params.log_file, str(self.params.exp_id) + "_" + str(self.params.gamma) + "bad_case.txt")
+            with open(json_file,'w') as f:
+               for i in range(len(gold)):
+                   for j in range(len(gold[i])):
+                       if gold[i][j] != pred[i][j]:
+                           f.write(str(word_list[i].split(' ')[1:-1])+'\n')
+                           f.write('wrong:  ' + str(pred[i])+'\n')
+                           f.write('right:  ' + str(gold[i])+'\n')
+                           f.write('\n\n')
+            f.close()
+
+        # print(gold)
+        # print(pred)
+        # print(word_list)
+
         
         
         g = []
@@ -304,12 +317,37 @@ class Main:
 
         self.model_saved_path = model_saved_path
         self.opti_saved_path = opti_saved_path
-          
+
+    def do_test_prog(self):
+        model_saved_path = self.params.model_saved_path
+        best_model = os.path.join(model_saved_path,'best_model.pth')
+        res_dict = torch.load(best_model)
+        model_params = res_dict['model']
+        train_tag2idx = res_dict['train_tag2idx']
+        dev_test_tag2idx = res_dict['dev_test_tag2idx']
+
+        self.slt = Model.SlotFilling(params, train_tag2idx, dev_test_tag2idx, bert_path=params.bert_path,device=params.device)
+        self.slt.to(params.device)
+        self.slt.load_state_dict(model_params)
+        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path, n_samples=params.n_samples)
+        dev_test_idx2tag = {v:k for k,v in dev_test_tag2idx.items()}
+        self.dev_test_idx2tag = dev_test_idx2tag
+        self.train_tag2idx, self.dev_test_tag2idx = train_tag2idx, dev_test_tag2idx
+        self.do_test(dataloader_test, True)
+
+
+
+
+
+
+
 if __name__ == "__main__":
     params = get_params()
     logger = init_experiment(params, params.logger_filename)
     if params.model_type == "train":
         train_process = Main(params, logger)
         train_process.do_train()
-
+    else:
+        test_process = Main(params, logger)
+        test_process.do_test_prog()
 

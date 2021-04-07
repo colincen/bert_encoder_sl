@@ -35,5 +35,6 @@ python main.py \
 --emb_file /home/sh/data \
 --emb_src Bert \
 --gamma 0.6 \
+--n_samples 0 \
 --log_file /home/sh/data/experiments/coach_bert_encoder \
 --proj no

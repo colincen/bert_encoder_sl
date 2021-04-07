@@ -43,7 +43,7 @@ class CRF(nn.Module):
         self.labelembedding_train = CRF.buildCRFLabelEmbedding(train_labelEmbedding)
         self.labelembedding_dev_test = CRF.buildCRFLabelEmbedding(dev_test_labelEmbedding)
         self.num_tags = None
-        self.labelembedding = None
+        self.labelembedding = CRF.buildCRFLabelEmbedding(dev_test_labelEmbedding)
         self.reset_parameters()
     @staticmethod
     def buildCRFLabelEmbedding(embedding):
