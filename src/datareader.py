@@ -208,16 +208,17 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path, n_samples=0):
                 if _I not in dev_test_tag2idx.keys() and _I in y_set:
                     dev_test_tag2idx[_I] = len(dev_test_tag2idx)
             
-            train_data.extend(raw_data[k][:n_samples])    
-            
+            if n_samples > 0:
+                train_data.extend(raw_data[k][:n_samples])    
+                
 
-            for slot in v:
-                _B = "B-" + slot
-                if _B not in train_tag2idx.keys() and _B in y_set:
-                    train_tag2idx[_B] = len(train_tag2idx)
-                _I = "I-" + slot
-                if _I not in train_tag2idx.keys() and _I in y_set:
-                    train_tag2idx[_I] = len(train_tag2idx)
+                for slot in v:
+                    _B = "B-" + slot
+                    if _B not in train_tag2idx.keys() and _B in y_set:
+                        train_tag2idx[_B] = len(train_tag2idx)
+                    _I = "I-" + slot
+                    if _I not in train_tag2idx.keys() and _I in y_set:
+                        train_tag2idx[_I] = len(train_tag2idx)
 
         else:
             train_data.extend(raw_data[k])

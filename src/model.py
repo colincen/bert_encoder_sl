@@ -311,13 +311,13 @@ class SlotFilling(nn.Module):
         torch.nn.init.uniform_(self.Proj_W, -0.1, 0.1)
 
 
-        self.coarse_emb = nn.Linear(768, 768)
-        self.fc_for_coarse = nn.Linear(768, 16)
+        self.coarse_emb = nn.Linear(768, 200)
+        self.fc_for_coarse = nn.Linear(200, 16)
 
-        self.fine_emb = nn.Linear(768, 768)
+        self.fine_emb = nn.Linear(768, 568)
 
 
-        self.fc_for_concat_emb = nn.Linear(768 * 2, 768)
+        # self.fc_for_concat_emb = nn.Linear(768 * 2, 768)
 
 
 
@@ -338,13 +338,13 @@ class SlotFilling(nn.Module):
 
         reps = bert_out_reps
         coarse_reps = self.coarse_emb(reps)
-        coarse_logits = self.fc_for_coarse(reps)
+        coarse_logits = self.fc_for_coarse(coarse_reps)
         
         if not iseval:
             coarse_loss = -self.crf(emissions=coarse_logits, tags=bin_tag,
             mask=attention_mask,reduction='mean')
             reps = self.fine_emb(reps)
-            reps = self.fc_for_concat_emb(torch.cat((coarse_reps, reps), -1))
+            reps = torch.cat((coarse_reps, reps), -1)
             logits = self.sim_func(reps, labelembedding)
             emb_loss = -self.crf_labemb(logits, y, attention_mask, 'mean')
 
@@ -352,7 +352,7 @@ class SlotFilling(nn.Module):
             coarse_loss = torch.tensor(0, device=self.device)
             emb_loss = torch.tensor(0, device=self.device)
             reps = self.fine_emb(reps)
-            reps = self.fc_for_concat_emb(torch.cat((coarse_reps, reps), -1))
+            reps = torch.cat((coarse_reps, reps), -1)
             logits = self.sim_func(reps, labelembedding)
 
 

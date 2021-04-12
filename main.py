@@ -9,6 +9,10 @@ from tqdm import tqdm
 import numpy as np
 import os
 import json
+import functools
+from prettytable import PrettyTable
+import csv
+
 
 class Main:
     def __init__(self, params, logger):
@@ -213,17 +217,17 @@ class Main:
                         # _coarse_gold.append(fine2coarsetag[gold_fine_tag])
                         # _coarse_pred.append(fine2coarsetag[pred_fine_tag])
 
-                        if bins_labels[bin_tag[j][k].item()] == 'pad':
-                            _coarse_gold.append('O')
-                        else:      
-                            _coarse_gold.append(bins_labels[bin_tag[j][k].item()])
+                        # if bins_labels[bin_tag[j][k].item()] == 'pad':
+                        #     _coarse_gold.append('O')
+                        # else:      
+                        #     _coarse_gold.append(bins_labels[bin_tag[j][k].item()])
 
 
 
-                        if bins_labels[best_list[j][k]] == 'pad':
-                            _coarse_pred.append('O')
-                        else:      
-                            _coarse_pred.append(bins_labels[best_list[j][k]])
+                        # if bins_labels[best_list[j][k]] == 'pad':
+                        #     _coarse_pred.append('O')
+                        # else:      
+                        #     _coarse_pred.append(bins_labels[best_list[j][k]])
 
 
 
@@ -254,7 +258,9 @@ class Main:
 
 
 
-            json_file = os.path.join(self.params.log_file, str(self.params.exp_id) + "_" + str(self.params.gamma) + "bad_case.txt")
+            json_file = os.path.join(self.params.log_file, str(self.params.exp_id) + "_" + str(self.params.gamma) + "_bad_case.txt")
+
+
             with open(json_file,'w') as f:
                for i in range(len(gold)):
                    for j in range(len(gold[i])):
@@ -263,6 +269,7 @@ class Main:
                            f.write('wrong:  ' + str(pred[i])+'\n')
                            f.write('right:  ' + str(gold[i])+'\n')
                            f.write('\n\n')
+                           break
             f.close()
 
         # print(gold)
@@ -298,6 +305,68 @@ class Main:
                     p.append("O")
                 else:
                     p.append(j)
+
+
+
+
+
+
+        slot_set = set()
+        for i in g:
+            slot_set.add(i)
+        for i in p:
+            slot_set.add(i)    
+        slot_l = list(slot_set)
+        slot_l = sorted(slot_l, key=lambda x : x[2:])
+        
+
+
+        matrix_dict = {}
+        
+        for i in slot_l:
+            if i not in matrix_dict:
+                matrix_dict[i] = len(matrix_dict)
+        
+
+        id2slot = {v : k for k,v in matrix_dict.items()}
+
+
+        cnt = [[0 for col in range(len(matrix_dict))] for row in range(len(matrix_dict))]
+
+
+        temp_keys = [id2slot[j] for j in range(len(id2slot))]
+        tb = PrettyTable()
+        tb.field_names = ["a"] + temp_keys
+        csv_row = ["a"] + temp_keys
+        csv_file = os.path.join(self.params.log_file, str(self.params.exp_id) + "_" + str(self.params.gamma) + "_matrix.csv")
+        out = open(csv_file,"w", newline="")
+        csv_writer = csv.writer(out,dialect='excel')
+        for i in range(len(g)):
+            row_idx = matrix_dict[g[i]]
+            col_idx = matrix_dict[p[i]]
+            cnt[row_idx][col_idx] += 1
+
+
+        csv_writer.writerow(csv_row)
+     
+
+        for i in range(len(id2slot)):
+            tb.add_row([id2slot[i]] + cnt[i])
+            csv_writer.writerow([id2slot[i]] + cnt[i])
+        
+        
+        if badcase:
+        
+            json_file = os.path.join(self.params.log_file, str(self.params.exp_id) + "_" + str(self.params.gamma) + "_matrix.txt")
+
+            with open(json_file,'w') as f:
+                f.write(str(tb))
+            f.close()        
+
+
+
+
+        
         (prec, rec, f1), di = evaluate(g, p, self.logger)
         return f1, di
 

@@ -26,7 +26,7 @@ python main.py \
 --exp_name coach_bert_encoder  \
 --exp_id sse \
 --tgt_domain SearchScreeningEvent \
---model_type train \
+--model_type test \
 --device cuda:0 \
 --dump_path /home/sh/data/experiments \
 --bert_path /home/sh/bert-base-uncased \
@@ -37,4 +37,5 @@ python main.py \
 --gamma 0.6 \
 --n_samples 0 \
 --log_file /home/sh/data/experiments/coach_bert_encoder \
+--model_saved_path /home/sh/data/experiments/coach_bert_encoder/sse \
 --proj no
