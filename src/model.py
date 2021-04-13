@@ -311,10 +311,10 @@ class SlotFilling(nn.Module):
         torch.nn.init.uniform_(self.Proj_W, -0.1, 0.1)
 
 
-        self.coarse_emb = nn.Linear(768, 200)
-        self.fc_for_coarse = nn.Linear(200, 16)
+        self.coarse_emb = nn.Linear(768, 300)
+        self.fc_for_coarse = nn.Linear(300, 16)
 
-        self.fine_emb = nn.Linear(768, 568)
+        self.fine_emb = nn.Linear(768, 468)
 
 
         # self.fc_for_concat_emb = nn.Linear(768 * 2, 768)
