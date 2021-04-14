@@ -22,20 +22,19 @@
 #     done
 # done
 
-python main.py \
---exp_name coach_bert_encoder  \
---exp_id sse \
---tgt_domain SearchScreeningEvent \
---model_type test \
---device cuda:0 \
---dump_path /home/sh/data/experiments \
---bert_path /home/sh/bert-base-uncased \
---file_path /home/sh/data/coachdata/snips \
---corps_path /home/sh/data/corps.txt \
---emb_file /home/sh/data \
---emb_src Bert \
---gamma 0.6 \
---n_samples 0 \
---log_file /home/sh/data/experiments/coach_bert_encoder \
---model_saved_path /home/sh/data/experiments/coach_bert_encoder/sse \
---proj no
+
+    python main.py \
+    --exp_name zero_shot  \
+    --exp_id RateBook \
+    --tgt_domain RateBook \
+    --model_type train \
+    --device cuda:0 \
+    --dump_path /home/sh/data/experiments \
+    --bert_path /home/sh/bert-base-uncased \
+    --file_path /home/sh/data/coachdata/snips \
+    --log_file /home/sh/data/experiments/zero_shot \
+    --corps_path /home/sh/data/corps.txt \
+    --emb_file /home/sh/data \
+    --emb_src Bert \
+    --n_samples 0 \
+    --proj no

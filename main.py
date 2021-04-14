@@ -165,7 +165,7 @@ class Main:
                     res_dict[_I] = "I-" + k 
         return res_dict
    
-    def do_test(self, data_gen, badcase=False):
+    def do_test(self, data_gen, badcase=True):
 
         self.slt.eval()
         pbar = tqdm(enumerate(data_gen), total=len(data_gen))
