@@ -60,7 +60,7 @@ class LabelEmbeddingFactory:
                 slot = tag[2:]
                 #########
                 # 这里可以把slot改成description试试
-                tokens = tokenizer.encode(slot)
+                tokens = tokenizer.encode(slot2desp[slot])
                 #########
                 tokens = torch.tensor(tokens)
                 tokens = tokens.unsqueeze(0)
