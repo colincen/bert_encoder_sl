@@ -163,17 +163,17 @@ class SlotFilling(nn.Module):
                                                      batch_first = True)
 
         
-        self.sim_func = Similarity(size=(768, 768 + 3 + 9), type='mul')
+        self.sim_func = Similarity(size=(768 + 16, 768 + 3 + 9), type='mul')
         self.sim_func2 = Similarity(size=(768, 300 + 3), type='mul')
         self.Proj_W = nn.Parameter(torch.empty(768, 300))
         self.droupout = nn.Dropout(params.dropout)
         torch.nn.init.uniform_(self.Proj_W, -0.1, 0.1)
 
 
-        self.coarse_emb = nn.Linear(768, 300)
-        self.fc_for_coarse = nn.Linear(300, 16)
+        self.coarse_emb = nn.Linear(768, 100)
+        self.fc_for_coarse = nn.Linear(100, 16)
 
-        self.fine_emb = nn.Linear(768, 468)
+        self.fine_emb = nn.Linear(768, 668)
 
 
         # self.fc_for_concat_emb = nn.Linear(768 * 2, 768)
@@ -203,7 +203,7 @@ class SlotFilling(nn.Module):
             coarse_loss = -self.crf(emissions=coarse_logits, tags=bin_tag,
             mask=attention_mask,reduction='mean')
             reps = self.fine_emb(reps)
-            reps = torch.cat((coarse_reps, reps), -1)
+            reps = torch.cat((coarse_reps, reps, coarse_logits), -1)
             logits = self.sim_func(reps, labelembedding)
             emb_loss = -self.crf_labemb(logits, y, attention_mask, 'mean')
 
@@ -211,7 +211,7 @@ class SlotFilling(nn.Module):
             coarse_loss = torch.tensor(0, device=self.device)
             emb_loss = torch.tensor(0, device=self.device)
             reps = self.fine_emb(reps)
-            reps = torch.cat((coarse_reps, reps), -1)
+            reps = torch.cat((coarse_reps, reps, coarse_logits), -1)
             logits = self.sim_func(reps, labelembedding)
 
 
