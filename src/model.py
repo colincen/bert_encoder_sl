@@ -140,6 +140,93 @@ class Similarity(nn.Module):
             
             return reps
 
+
+class SlotFilling(nn.Module):
+    def __init__(self, params, train_tag2idx, dev_test_tag2idx, bert_path, device):
+        super(SlotFilling, self).__init__()
+        self.tokenizer = BertTokenizer.from_pretrained(bert_path)
+        self.encoder = BertModel.from_pretrained(bert_path)
+        self.device = device
+        self.params = params
+        self.crf = CRF(num_tags=16, batch_first=True)
+        labelembedding = LabelEmbeddingFactory()
+
+        self.train_labelembedding = labelembedding.BertEncoderAve(train_tag2idx,self.tokenizer,self.encoder).to(device)
+    
+        self.dev_test_labelembedding = labelembedding.BertEncoderAve(dev_test_tag2idx, self.tokenizer ,self.encoder).to(device)
+    
+        self.crf_labemb = CRF_labelembedding(train_labelEmbedding=self.train_labelembedding, \
+                                                dev_test_labelEmbedding=self.dev_test_labelembedding, \
+                                            
+                                                 train_num_tags=self.train_labelembedding.size(0), \
+                                                     dev_test_num_tags = self.dev_test_labelembedding.size(0),\
+                                                     batch_first = True)
+
+        
+        self.sim_func = Similarity(size=(768, 768 + 3 + 9), type='mul')
+        self.sim_func2 = Similarity(size=(768, 300 + 3), type='mul')
+        self.Proj_W = nn.Parameter(torch.empty(768, 300))
+        self.droupout = nn.Dropout(params.dropout)
+        torch.nn.init.uniform_(self.Proj_W, -0.1, 0.1)
+
+
+        self.coarse_emb = nn.Linear(768, 300)
+        self.fc_for_coarse = nn.Linear(300, 16)
+
+        self.fine_emb = nn.Linear(768, 468)
+
+
+        # self.fc_for_concat_emb = nn.Linear(768 * 2, 768)
+
+
+
+
+
+
+    def forward(self, x, heads, seq_len, domains, iseval=False, y=None, bin_tag=None):
+        
+        attention_mask = (x != 0).byte().to(self.device)
+        reps = self.encoder(x, attention_mask=attention_mask)[0]
+        bert_out_reps = self.droupout(reps)
+        labelembedding = None
+        if not iseval:
+            labelembedding = self.train_labelembedding
+            
+        else:
+            labelembedding = self.dev_test_labelembedding
+
+        reps = bert_out_reps
+        coarse_reps = self.coarse_emb(reps)
+        coarse_logits = self.fc_for_coarse(coarse_reps)
+        
+        if not iseval:
+            coarse_loss = -self.crf(emissions=coarse_logits, tags=bin_tag,
+            mask=attention_mask,reduction='mean')
+            reps = self.fine_emb(reps)
+            reps = torch.cat((coarse_reps, reps), -1)
+            logits = self.sim_func(reps, labelembedding)
+            emb_loss = -self.crf_labemb(logits, y, attention_mask, 'mean')
+
+        else:
+            coarse_loss = torch.tensor(0, device=self.device)
+            emb_loss = torch.tensor(0, device=self.device)
+            reps = self.fine_emb(reps)
+            reps = torch.cat((coarse_reps, reps), -1)
+            logits = self.sim_func(reps, labelembedding)
+
+
+
+        # reps = self.fine_emb(reps)
+
+        # reps = self.fc_for_concat_emb(torch.cat((coarse_reps, reps), -1))
+
+        # if self.params.proj == 'no':
+        #     final_logits = self.sim_func(reps, labelembedding)
+
+
+        
+        return coarse_logits, logits, bert_out_reps, reps, coarse_loss, emb_loss
+
 class ProjMartrix(nn.Module):
     def __init__(self, params, dataloader_tr):
         super(ProjMartrix, self).__init__()
@@ -281,89 +368,3 @@ class ProjMartrix(nn.Module):
             x = [' '.join(j) for j in x]
 
             yield x,y
-
-class SlotFilling(nn.Module):
-    def __init__(self, params, train_tag2idx, dev_test_tag2idx, bert_path, device):
-        super(SlotFilling, self).__init__()
-        self.tokenizer = BertTokenizer.from_pretrained(bert_path)
-        self.encoder = BertModel.from_pretrained(bert_path)
-        self.device = device
-        self.params = params
-        self.crf = CRF(num_tags=16, batch_first=True)
-        labelembedding = LabelEmbeddingFactory()
-
-        self.train_labelembedding = labelembedding.BertEncoderAve(train_tag2idx,self.tokenizer,self.encoder).to(device)
-    
-        self.dev_test_labelembedding = labelembedding.BertEncoderAve(dev_test_tag2idx, self.tokenizer ,self.encoder).to(device)
-    
-        self.crf_labemb = CRF_labelembedding(train_labelEmbedding=self.train_labelembedding, \
-                                                dev_test_labelEmbedding=self.dev_test_labelembedding, \
-                                            
-                                                 train_num_tags=self.train_labelembedding.size(0), \
-                                                     dev_test_num_tags = self.dev_test_labelembedding.size(0),\
-                                                     batch_first = True)
-
-        
-        self.sim_func = Similarity(size=(768, 768 + 3 + 9), type='mul')
-        self.sim_func2 = Similarity(size=(768, 300 + 3), type='mul')
-        self.Proj_W = nn.Parameter(torch.empty(768, 300))
-        self.droupout = nn.Dropout(params.dropout)
-        torch.nn.init.uniform_(self.Proj_W, -0.1, 0.1)
-
-
-        self.coarse_emb = nn.Linear(768, 300)
-        self.fc_for_coarse = nn.Linear(300, 16)
-
-        self.fine_emb = nn.Linear(768, 468)
-
-
-        # self.fc_for_concat_emb = nn.Linear(768 * 2, 768)
-
-
-
-
-
-
-    def forward(self, x, heads, seq_len, domains, iseval=False, y=None, bin_tag=None):
-        
-        attention_mask = (x != 0).byte().to(self.device)
-        reps = self.encoder(x, attention_mask=attention_mask)[0]
-        bert_out_reps = self.droupout(reps)
-        labelembedding = None
-        if not iseval:
-            labelembedding = self.train_labelembedding
-            
-        else:
-            labelembedding = self.dev_test_labelembedding
-
-        reps = bert_out_reps
-        coarse_reps = self.coarse_emb(reps)
-        coarse_logits = self.fc_for_coarse(coarse_reps)
-        
-        if not iseval:
-            coarse_loss = -self.crf(emissions=coarse_logits, tags=bin_tag,
-            mask=attention_mask,reduction='mean')
-            reps = self.fine_emb(reps)
-            reps = torch.cat((coarse_reps, reps), -1)
-            logits = self.sim_func(reps, labelembedding)
-            emb_loss = -self.crf_labemb(logits, y, attention_mask, 'mean')
-
-        else:
-            coarse_loss = torch.tensor(0, device=self.device)
-            emb_loss = torch.tensor(0, device=self.device)
-            reps = self.fine_emb(reps)
-            reps = torch.cat((coarse_reps, reps), -1)
-            logits = self.sim_func(reps, labelembedding)
-
-
-
-        # reps = self.fine_emb(reps)
-
-        # reps = self.fc_for_concat_emb(torch.cat((coarse_reps, reps), -1))
-
-        # if self.params.proj == 'no':
-        #     final_logits = self.sim_func(reps, labelembedding)
-
-
-        
-        return coarse_logits, logits, bert_out_reps, reps, coarse_loss, emb_loss
