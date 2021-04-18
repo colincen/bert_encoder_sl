@@ -110,21 +110,20 @@ class Main:
 
                 # loss_coarse = self.loss_func(coarse_logits.view(bsz*max_len, -1), bin_tag.view(-1))
 
-                mseloss = self.mse_loss_func(reps, bert_out_reps)
-                loss = loss_sim + mseloss + loss_coarse
+                # mseloss = self.mse_loss_func(reps, bert_out_reps)
+                loss = loss_sim +  loss_coarse
                 # loss = self.params.gamma * (loss_sim + mseloss) + (1 - self.params.gamma) * loss_coarse
 
                 loss.backward()
                 total_loss_list.append(loss.item())
                 coarse_loss_list.append(loss_coarse.item())
                 sim_loss_list.append(loss_sim.item())
-                mse_loss_list.append(mseloss.item())
+                # mse_loss_list.append(mseloss.item())
 
                 self.optimizer.step()
-                pbar.set_description("(Epoch {}) Coarse LOSS:{:.4f} MSE LOSS:{:.4f} Sim LOSS:{:.4f} Total Loss".format \
+                pbar.set_description("(Epoch {}) Coarse LOSS:{:.4f}  Sim LOSS:{:.4f} Total Loss{:.4f}".format \
                 ((epoch+1), \
                     np.mean(coarse_loss_list), \
-                    np.mean(mse_loss_list), \
                     np.mean(sim_loss_list), \
                     np.mean(total_loss_list)
                     ))
