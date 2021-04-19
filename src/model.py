@@ -199,12 +199,20 @@ class SlotFilling(nn.Module):
         coarse_reps = self.coarse_emb(reps)
         coarse_logits = self.fc_for_coarse(coarse_reps)
         
+        # coarse_logits = torch.softmax(coarse_logits, -1)
+        # for i in coarse_logits:
+        #     for j in i:
+        #         for k in j:
+        #             print(k.item())
+        #         print('-'*10)
+
         if not iseval:
             coarse_loss = -self.crf(emissions=coarse_logits, tags=bin_tag,
             mask=attention_mask,reduction='mean')
             reps = self.fine_emb(reps)
             reps = torch.cat((coarse_reps, reps), -1)
             logits = self.sim_func(reps, labelembedding)
+
             emb_loss = -self.crf_labemb(logits, y, attention_mask, 'mean')
 
         else:
@@ -213,7 +221,12 @@ class SlotFilling(nn.Module):
             reps = self.fine_emb(reps)
             reps = torch.cat((coarse_reps, reps), -1)
             logits = self.sim_func(reps, labelembedding)
-
+            # for i in coarse_logits:
+            #     for j in i:
+            #         for k in j:
+            #             print(k.item())
+            #         print('-'*10)
+            
 
 
         # reps = self.fine_emb(reps)

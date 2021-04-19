@@ -27,12 +27,13 @@
     --exp_name zero_shot  \
     --exp_id RateBook \
     --tgt_domain RateBook \
-    --model_type train \
-    --device cuda:0 \
+    --model_type test \
+    --device cuda:1 \
     --dump_path /home/sh/data/experiments \
     --bert_path /home/sh/bert-base-uncased \
     --file_path /home/sh/data/coachdata/snips \
     --log_file /home/sh/data/experiments/zero_shot \
+    --model_saved_path /home/sh/data/experiments/zero_shot/RateBook \
     --corps_path /home/sh/data/corps.txt \
     --emb_file /home/sh/data \
     --emb_src Bert \
