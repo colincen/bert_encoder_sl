@@ -48,8 +48,7 @@ class Main:
         torch.save({"projection_matrix" : premodel.state_dict() },proj_saved_path)
 
     def do_train(self):
-        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path, n_samples=params.n_samples)
-        
+        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx, train_mask, test_mask = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path, n_samples=params.n_samples)
         premodel = None
         # if (not os.path.exists(os.path.join(self.params.dump_path, "proj.pth"))) and (self.params.proj == 'yes'):
         #     self.do_pretrain()
@@ -93,7 +92,7 @@ class Main:
 
             for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len, coarse_label, bin_tag) in pbar:
                 
-
+                
 
                 bin_tag = bin_tag.to(params.device)
                 y = y.to(params.device)
@@ -101,7 +100,7 @@ class Main:
                 bsz, max_len = x.size(0), x.size(1)
                 x = x.to(params.device)
                 pad_heads = pad_heads.to(params.device)
-                coarse_logits, final_logits, bert_out_reps, reps, loss_coarse, loss_sim = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, bin_tag=bin_tag, domains=domains)
+                coarse_logits, final_logits, bert_out_reps, reps, loss_coarse, loss_sim = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, bin_tag=bin_tag, domains=domains, logits_mask = train_mask)
 
 
                 self.optimizer.zero_grad()
@@ -121,7 +120,7 @@ class Main:
                 # mse_loss_list.append(mseloss.item())
 
                 self.optimizer.step()
-                pbar.set_description("(Epoch {}) Coarse LOSS:{:.4f}  Sim LOSS:{:.4f} Total Loss".format \
+                pbar.set_description("(Epoch {}) Coarse LOSS:{:.4f}  Sim LOSS:{:.4f} Total Loss{:.4f}".format \
                 ((epoch+1), \
                     np.mean(coarse_loss_list), \
                     # np.mean(mse_loss_list), \
@@ -130,8 +129,8 @@ class Main:
                     ))
 
                 
-            dev_f1, di_dev = self.do_test(dataloader_val)
-            test_f1, di_test = self.do_test(dataloader_test)
+            dev_f1, di_dev = self.do_test(dataloader_val, test_mask)
+            test_f1, di_test = self.do_test(dataloader_test, test_mask)
             if dev_f1 > best_dev_f1:
                 patience = 0
                 best_dev_f1 = dev_f1
@@ -165,7 +164,7 @@ class Main:
                     res_dict[_I] = "I-" + k 
         return res_dict
    
-    def do_test(self, data_gen, badcase=True):
+    def do_test(self, data_gen, test_mask, badcase=True):
 
         self.slt.eval()
         pbar = tqdm(enumerate(data_gen), total=len(data_gen))
@@ -183,19 +182,21 @@ class Main:
             bsz, max_len = x.size(0), x.size(1)
             x = x.to(params.device)
             pad_heads = pad_heads.to(params.device)
-            coarse_logits, final_logits, bert_out_reps, reps, loss_holder, emb_loss_holder = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, iseval = True, domains=domains)
+            coarse_logits, final_logits, bert_out_reps, reps, loss_holder, emb_loss_holder = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, iseval = True, domains=domains, logits_mask = test_mask)
             # score = torch.softmax(final_logits, -1)
             # score = score.argmax(-1)
 
+            #----------------
             attention_mask = (x != 0).byte().to(params.device)
 
             coarse_score, best_list = self.slt.crf.decode(coarse_logits, attention_mask)
-            emb_list  = self.slt.crf_labemb.decode(final_logits, attention_mask)
+            # emb_list  = self.slt.crf_labemb.decode(final_logits, attention_mask)
+            #------------------
             # print(coarse_score.size())
             # coarse_score = coarse_score.argmax(-1)
             # print(coarse_score.size())
             # coarse_score = torch.softmax(coarse_logits, -1)
-            # coarse_score = coarse_score.argmax(-1)
+            emb_list = final_logits.argmax(-1)
 
             for j in range(len(pad_heads)):
                 _pred = []
@@ -206,7 +207,7 @@ class Main:
 
                 for k in range(1, seq_len[j] - 1):
                     if pad_heads[j][k].item() == 1:
-                        pred_fine_tag = self.dev_test_idx2tag[emb_list[j][k]]
+                        pred_fine_tag = self.dev_test_idx2tag[emb_list[j][k].item()]
                         
                         gold_fine_tag = self.dev_test_idx2tag[y[j][k].item()]
 
@@ -398,11 +399,11 @@ class Main:
         self.slt = Model.SlotFilling(params, train_tag2idx, dev_test_tag2idx, bert_path=params.bert_path,device=params.device)
         self.slt.to(params.device)
         self.slt.load_state_dict(model_params)
-        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path, n_samples=params.n_samples)
+        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx, train_mask, test_mask = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path, n_samples=params.n_samples)
         dev_test_idx2tag = {v:k for k,v in dev_test_tag2idx.items()}
         self.dev_test_idx2tag = dev_test_idx2tag
         self.train_tag2idx, self.dev_test_tag2idx = train_tag2idx, dev_test_tag2idx
-        self.do_test(dataloader_test, True)
+        self.do_test(dataloader_test, test_mask, True)
 
 
 
@@ -412,7 +413,7 @@ class Main:
 
 if __name__ == "__main__":
     params = get_params()
-    logger = init_experiment(params, params.logger_filename)
+    logger = init_experiment(params, params.tgt_domain+"_"+ params.logger_filename)
     if params.model_type == "train":
         train_process = Main(params, logger)
         train_process.do_train()

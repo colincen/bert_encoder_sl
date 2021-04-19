@@ -139,7 +139,22 @@ class Similarity(nn.Module):
             reps = torch.matmul(reps, emb.transpose(0,1))
             
             return reps
+        if self.type == 'cosine':
+            output_reps = torch.matmul(output_reps, self.W)
+            bsz, seqlen, dim = output_reps.size(0), output_reps.size(1), output_reps.size(2)
+            labels_num = emb.size(0)
+            output_reps =  output_reps.unsqueeze(-2)
+            output_reps = output_reps.repeat([1,1,labels_num,1])
+            emb = emb.unsqueeze(0).unsqueeze(0)
+            emb = emb.repeat([bsz, seqlen, 1, 1])
 
+            reps = torch.cosine_similarity(output_reps,emb, -1)
+
+            return reps
+
+            # output_reps 32 x 22 x 784 
+            # self.W 784 x 780
+            # emb 66 x 780
 
 class SlotFilling(nn.Module):
     def __init__(self, params, train_tag2idx, dev_test_tag2idx, bert_path, device):
@@ -183,8 +198,10 @@ class SlotFilling(nn.Module):
 
 
 
-    def forward(self, x, heads, seq_len, domains, iseval=False, y=None, bin_tag=None):
+    def forward(self, x, heads, seq_len, domains, iseval=False, y=None, bin_tag=None,logits_mask = None):
         
+        bsz, seq_len = x.size(0),x.size(1)
+        logits_mask = torch.tensor(logits_mask, device=self.device).float()
         attention_mask = (x != 0).byte().to(self.device)
         reps = self.encoder(x, attention_mask=attention_mask)[0]
         bert_out_reps = self.droupout(reps)
@@ -198,21 +215,49 @@ class SlotFilling(nn.Module):
         reps = bert_out_reps
         coarse_reps = self.coarse_emb(reps)
         coarse_logits = self.fc_for_coarse(coarse_reps)
+        coarse_logits = torch.softmax(coarse_logits, -1)
         
+
+
+
+        emb_loss = torch.tensor(0, device=self.device)
         if not iseval:
             coarse_loss = -self.crf(emissions=coarse_logits, tags=bin_tag,
             mask=attention_mask,reduction='mean')
             reps = self.fine_emb(reps)
             reps = torch.cat((coarse_reps, reps, coarse_logits), -1)
             logits = self.sim_func(reps, labelembedding)
-            emb_loss = -self.crf_labemb(logits, y, attention_mask, 'mean')
+            logits = torch.softmax(logits, -1)
+
+            add_score = coarse_logits.matmul(logits_mask.transpose(0, 1))
+            logits = logits.mul(add_score)
+
+
+            logits = torch.log(logits)
+            
+            loss_func = nn.NLLLoss()
+            emb_loss = loss_func(logits.view(bsz*seq_len ,-1), y.view(-1))
+            
+
+
+            # print(logits)
+
+
+            # emb_loss = -self.crf_labemb(logits, y, attention_mask, 'mean')
 
         else:
             coarse_loss = torch.tensor(0, device=self.device)
-            emb_loss = torch.tensor(0, device=self.device)
+            
             reps = self.fine_emb(reps)
             reps = torch.cat((coarse_reps, reps, coarse_logits), -1)
             logits = self.sim_func(reps, labelembedding)
+            logits = torch.softmax(logits, -1)
+
+            add_score = coarse_logits.matmul(logits_mask.transpose(0, 1))
+            logits = logits.mul(add_score)
+
+
+        
 
 
 

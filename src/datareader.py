@@ -232,17 +232,14 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path, n_samples=0):
     
 
 
-    # print(raw_data['AddToPlaylist'][:20])
-
-    # for i in train_data:
-    #     if i[-1] == 'AddToPlaylist':
-    #         print(i[-1])
-
-    # print('-'*20)
+        fine2coarse = {}
+        for k,v in father_son_slot.items():
+            for t in v:
+                fine2coarse[t] = k
     
 
-
-
+    train_mask = get_mask_matrix(train_tag2idx)
+    test_mask = get_mask_matrix(dev_test_tag2idx)
 
     
     dev_data = test_data[n_samples:500]
@@ -256,6 +253,38 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path, n_samples=0):
     dataloader_val = DataLoader(dataset=dataset_val, batch_size=batch_size, shuffle=False, collate_fn=pad)
     dataloader_test = DataLoader(dataset=dataset_test, batch_size=batch_size, shuffle=False, collate_fn=pad)
 
-    return dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx
+    return dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx, train_mask,  test_mask
+
+
+def get_mask_matrix(son_dict):
+
+    fine2coarse = {}
+
+    for k,v in father_son_slot.items():
+            for t in v:
+                fine2coarse[t] = k
+
+    id2tag = {v:k for k,v in son_dict.items()}
+    vec_len = len(bins_labels)
+    mask_list = np.zeros((len(son_dict), vec_len))
+    for i in range(len(id2tag)):
+        tag = id2tag[i]
+        if tag not in ['<PAD>', 'O']:
+            newtag = tag[:2] + fine2coarse[tag[2:]]
+            idx = bins_labels.index(newtag)
+            mask_list[i][idx] = 1
+        elif tag == '<PAD>':
+            idx = bins_labels.index('pad')
+            mask_list[i][idx] = 1
+        elif tag == 'O':
+            idx = bins_labels.index(tag)
+            mask_list[i][idx] = 1
+
+    mask_list = mask_list.transpose(0, 1)
+    return mask_list
+    
+
+
+
 
 
