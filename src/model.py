@@ -215,7 +215,7 @@ class SlotFilling(nn.Module):
         reps = bert_out_reps
         coarse_reps = self.coarse_emb(reps)
         coarse_logits = self.fc_for_coarse(coarse_reps)
-        coarse_logits = torch.softmax(coarse_logits, -1)
+        # coarse_logits = torch.softmax(coarse_logits, -1)
         
         # for i in coarse_logits:
         #     for j in i:
@@ -233,11 +233,14 @@ class SlotFilling(nn.Module):
             logits = self.sim_func(reps, labelembedding)
             
             
-            logits = torch.softmax(logits, -1)
+            # logits = torch.softmax(logits, -1)
 
             add_score = coarse_logits.matmul(logits_mask.transpose(0, 1))
-            logits = logits.mul(add_score)
+            
+            # print(add_score)
+            logits =  logits+ 10 * add_score
 
+            logits = torch.softmax(logits, -1)
 
             logits = torch.log(logits)
             
@@ -262,13 +265,13 @@ class SlotFilling(nn.Module):
                     
 
 
-            logits = torch.softmax(logits, -1)
+            # logits = torch.softmax(logits, -1)
 
             add_score = coarse_logits.matmul(logits_mask.transpose(0, 1))
-            logits = logits.mul(add_score)
+            logits =  logits + 10 * add_score
 
 
-        
+            logits = torch.softmax(logits, -1)
 
 
 

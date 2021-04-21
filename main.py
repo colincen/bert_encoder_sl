@@ -109,8 +109,10 @@ class Main:
 
                 # loss_coarse = self.loss_func(coarse_logits.view(bsz*max_len, -1), bin_tag.view(-1))
 
-                
-                loss = loss_sim  + loss_coarse
+                if epoch < 2:
+                    loss = loss_coarse
+                else:
+                    loss = loss_sim  + loss_coarse
                 # loss = self.params.gamma * (loss_sim + mseloss) + (1 - self.params.gamma) * loss_coarse
 
                 loss.backward()
@@ -127,7 +129,17 @@ class Main:
                     np.mean(sim_loss_list), \
                     np.mean(total_loss_list)
                     ))
+                if i > 0 and i % 50 == 0:
+                    # continue
+                    dev_f1, di_dev = self.do_test(dataloader_val, test_mask)
+                    test_f1, di_test = self.do_test(dataloader_test, test_mask)
+                    if dev_f1 > best_dev_f1:
+                        patience = 0
+                        best_dev_f1 = dev_f1
 
+                        best_test_f1 = test_f1
+                        best_slot_f1 = di_test
+                        self.save_model()                    
                 
             dev_f1, di_dev = self.do_test(dataloader_val, test_mask)
             test_f1, di_test = self.do_test(dataloader_test, test_mask)

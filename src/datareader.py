@@ -273,8 +273,8 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path, n_samples=0):
                 fine2coarse[t] = k
     
 
-    train_mask = get_mask_matrix(train_tag2idx)
-    test_mask = get_mask_matrix(dev_test_tag2idx)
+    train_mask = get_mask_matrix(train_tag2idx, istest=False)
+    test_mask = get_mask_matrix(dev_test_tag2idx, istest=True)
 
     
     dev_data = test_data[n_samples:500]
@@ -291,7 +291,7 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path, n_samples=0):
     return dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx, train_mask,  test_mask
 
 
-def get_mask_matrix(son_dict):
+def get_mask_matrix(son_dict, istest):
 
     fine2coarse = {}
 
@@ -305,9 +305,25 @@ def get_mask_matrix(son_dict):
     for i in range(len(id2tag)):
         tag = id2tag[i]
         if tag not in ['<PAD>', 'O']:
+                
+
+
+            
             newtag = tag[:2] + fine2coarse[tag[2:]]
             idx = bins_labels.index(newtag)
             mask_list[i][idx] = 1
+            # if istest:
+            #     if tag not in ['B-object_type', 'I-object_type']:
+            #         mask_list[i][idx] = 1
+            #     elif tag in ['B-object_type', 'I-object_type']:
+            #         mask_list[i] += 0.05
+            #         idxt = bins_labels.index('B-common_name')
+            #         mask_list[i][idxt] = 0
+            #         idxt = bins_labels.index('I-common_name')
+            #         mask_list[i][idxt] = 0
+
+
+            
         elif tag == '<PAD>':
             idx = bins_labels.index('pad')
             mask_list[i][idx] = 1
