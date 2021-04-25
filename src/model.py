@@ -198,7 +198,7 @@ class SlotFilling(nn.Module):
 
 
 
-    def forward(self, x, heads, seq_len, domains, iseval=False, y=None, bin_tag=None,logits_mask = None):
+    def forward(self, x, heads, seq_len, domains, iseval=False, y=None, bin_tag=None,logits_mask = None, alpha=0):
         
         bsz, seq_len = x.size(0),x.size(1)
         logits_mask = torch.tensor(logits_mask, device=self.device).float()
@@ -238,21 +238,21 @@ class SlotFilling(nn.Module):
             add_score = coarse_logits.matmul(logits_mask.transpose(0, 1))
             
             # print(add_score)
-            logits =  logits+ 10 * add_score
-
-            logits = torch.softmax(logits, -1)
-
-            logits = torch.log(logits)
             
-            loss_func = nn.NLLLoss()
-            emb_loss = loss_func(logits.view(bsz*seq_len ,-1), y.view(-1))
+            logits =  logits + 10 * add_score
+            # logits = torch.softmax(logits, -1)
+
+            # logits = torch.log(logits)
+            
+            # loss_func = nn.NLLLoss()
+            # emb_loss = loss_func(logits.view(bsz*seq_len ,-1), y.view(-1))
             
 
 
             # print(logits)
 
 
-            # emb_loss = -self.crf_labemb(logits, y, attention_mask, 'mean')
+            emb_loss = -self.crf_labemb(logits, y, attention_mask, 'mean')
 
         else:
             coarse_loss = torch.tensor(0, device=self.device)
@@ -271,7 +271,7 @@ class SlotFilling(nn.Module):
             logits =  logits + 10 * add_score
 
 
-            logits = torch.softmax(logits, -1)
+            # logits = torch.softmax(logits, -1)
 
 
 
@@ -427,3 +427,4 @@ class ProjMartrix(nn.Module):
             x = [' '.join(j) for j in x]
 
             yield x,y
+ 

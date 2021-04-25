@@ -100,7 +100,7 @@ class Main:
                 bsz, max_len = x.size(0), x.size(1)
                 x = x.to(params.device)
                 pad_heads = pad_heads.to(params.device)
-                coarse_logits, final_logits, bert_out_reps, reps, loss_coarse, loss_sim = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, bin_tag=bin_tag, domains=domains, logits_mask = train_mask)
+                coarse_logits, final_logits, bert_out_reps, reps, loss_coarse, loss_sim = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, bin_tag=bin_tag, domains=domains, logits_mask = train_mask, alpha = epoch)
 
 
                 self.optimizer.zero_grad()
@@ -110,7 +110,7 @@ class Main:
                 # loss_coarse = self.loss_func(coarse_logits.view(bsz*max_len, -1), bin_tag.view(-1))
 
                 if epoch < 2:
-                    loss = loss_coarse
+                    loss = loss_coarse 
                 else:
                     loss = loss_sim  + loss_coarse
                 # loss = self.params.gamma * (loss_sim + mseloss) + (1 - self.params.gamma) * loss_coarse
@@ -202,13 +202,13 @@ class Main:
             attention_mask = (x != 0).byte().to(params.device)
 
             coarse_score, best_list = self.slt.crf.decode(coarse_logits, attention_mask)
-            # emb_list  = self.slt.crf_labemb.decode(final_logits, attention_mask)
+            emb_list  = self.slt.crf_labemb.decode(final_logits, attention_mask)
             #------------------
             # print(coarse_score.size())
             # coarse_score = coarse_score.argmax(-1)
             # print(coarse_score.size())
             # coarse_score = torch.softmax(coarse_logits, -1)
-            emb_list = final_logits.argmax(-1)
+            # emb_list = final_logits.argmax(-1)
 
             for j in range(len(pad_heads)):
                 _pred = []
@@ -219,7 +219,7 @@ class Main:
 
                 for k in range(1, seq_len[j] - 1):
                     if pad_heads[j][k].item() == 1:
-                        pred_fine_tag = self.dev_test_idx2tag[emb_list[j][k].item()]
+                        pred_fine_tag = self.dev_test_idx2tag[emb_list[j][k]]
                         
                         gold_fine_tag = self.dev_test_idx2tag[y[j][k].item()]
 

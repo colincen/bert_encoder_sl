@@ -94,7 +94,7 @@ bins_labels = ['pad', 'O', 'B-person','I-person' , 'B-location', 'I-location', '
 father_son_slot={
     'pad':['<PAD>'],
     'O':['O'],
-    'person':['artist','playlist_owner','party_size_description'],
+    'person':['artist','party_size_description'],
     'location':['state','city','geographic_poi','object_location_type','location_name','country','poi'],
     'special_name':['album','service','entity_name','playlist','music_item','track','movie_name','object_name',
                     'served_dish','restaurant_name','cuisine'],
@@ -102,7 +102,7 @@ father_son_slot={
                 'condition_description','condition_temperature'],
     'number':['rating_value','best_rating','year','party_size_number','timeRange'],
     'direction':['spatial_relation','current_location','object_select'],
-    'others':['rating_unit', 'sort']
+    'others':['rating_unit', 'sort','playlist_owner']
 }
 
 
