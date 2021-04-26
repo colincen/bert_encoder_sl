@@ -8,7 +8,7 @@ do
     --exp_name zero_shot_logits  \
     --exp_id ${tag_dm} \
     --tgt_domain ${tag_dm} \
-    --model_type test \
+    --model_type train \
     --device cuda:1 \
     --dump_path /home/sh/data/experiments \
     --bert_path /home/sh/bert-base-uncased \

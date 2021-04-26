@@ -239,7 +239,7 @@ class SlotFilling(nn.Module):
             
             # print(add_score)
             
-            logits =  logits + 10 * add_score
+            logits =  logits + 2 * add_score
             # logits = torch.softmax(logits, -1)
 
             # logits = torch.log(logits)
@@ -268,7 +268,7 @@ class SlotFilling(nn.Module):
             # logits = torch.softmax(logits, -1)
 
             add_score = coarse_logits.matmul(logits_mask.transpose(0, 1))
-            logits =  logits + 10 * add_score
+            logits =  logits + 2 * add_score
 
 
             # logits = torch.softmax(logits, -1)
