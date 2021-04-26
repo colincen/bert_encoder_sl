@@ -417,12 +417,6 @@ class Main:
         self.train_tag2idx, self.dev_test_tag2idx = train_tag2idx, dev_test_tag2idx
         self.do_test(dataloader_test, test_mask, True)
 
-
-
-
-
-
-
 if __name__ == "__main__":
     params = get_params()
     logger = init_experiment(params, params.tgt_domain+"_"+ params.logger_filename)
