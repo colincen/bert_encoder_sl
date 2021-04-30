@@ -35,6 +35,8 @@ do
     --tgt_domain ${tag_dm} \
     --model_type train \
     --device cuda:1 \
+    --batch_size 32
+    --lr 0.001 \
     --dump_path /home/sh/data/experiments \
     --bert_path /home/sh/bert-base-uncased \
     --file_path /home/sh/data/coachdata/snips \

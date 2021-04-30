@@ -4,6 +4,7 @@ from transformers import BertModel, BertTokenizer
 import numpy as np
 import torchtext
 import random
+import torch.nn.utils.rnn as rnn_utils
 from collections import Counter
 from .datareader import slot2desp, father_son_slot, coarse
 import torch.nn.functional as F
@@ -123,6 +124,8 @@ class LabelEmbeddingFactory:
 
             emb.append(tag_emb)
         
+        # print(tag2idx)
+        # print(torch.tensor(emb).size())
         return torch.tensor(emb)
 
 class Similarity(nn.Module):
@@ -157,18 +160,25 @@ class Similarity(nn.Module):
             # emb 66 x 780
 
 class SlotFilling(nn.Module):
-    def __init__(self, params, train_tag2idx, dev_test_tag2idx, bert_path, device):
+    def __init__(self, params, embeddings, train_tag2idx, dev_test_tag2idx, device):
         super(SlotFilling, self).__init__()
-        self.tokenizer = BertTokenizer.from_pretrained(bert_path)
-        self.encoder = BertModel.from_pretrained(bert_path)
+        
+        self.embedding = nn.Embedding(embeddings.shape[0], embeddings.shape[1], padding_idx = 0)
+        self.embedding.weight.data.copy_(torch.FloatTensor(embeddings))
+        self.lstm = nn.LSTM(300, int(768 / 2), num_layers=2,
+                        dropout=params.dropout, bidirectional=True, batch_first=True)
+
         self.device = device
         self.params = params
-        self.crf = CRF(num_tags=16, batch_first=True)
+        self.crf = CRF(num_tags=15, batch_first=True)
         labelembedding = LabelEmbeddingFactory()
 
-        self.train_labelembedding = labelembedding.BertEncoderAve(train_tag2idx,self.tokenizer,self.encoder).to(device)
+
+
+
+        self.train_labelembedding = labelembedding.GloveEmbAve('/home/sh/data', train_tag2idx).to(device)
     
-        self.dev_test_labelembedding = labelembedding.BertEncoderAve(dev_test_tag2idx, self.tokenizer ,self.encoder).to(device)
+        self.dev_test_labelembedding = labelembedding.GloveEmbAve('/home/sh/data', dev_test_tag2idx).to(device)
     
         self.crf_labemb = CRF_labelembedding(train_labelEmbedding=self.train_labelembedding, \
                                                 dev_test_labelEmbedding=self.dev_test_labelembedding, \
@@ -178,7 +188,7 @@ class SlotFilling(nn.Module):
                                                      batch_first = True)
 
         
-        self.sim_func = Similarity(size=(768 + 16, 768 + 3 + 9), type='mul')
+        self.sim_func = Similarity(size=(768 + 15, 300 + 3 ), type='mul')
         self.sim_func2 = Similarity(size=(768, 300 + 3), type='mul')
         self.Proj_W = nn.Parameter(torch.empty(768, 300))
         self.droupout = nn.Dropout(params.dropout)
@@ -186,7 +196,7 @@ class SlotFilling(nn.Module):
 
 
         self.coarse_emb = nn.Linear(768, 100)
-        self.fc_for_coarse = nn.Linear(100, 16)
+        self.fc_for_coarse = nn.Linear(100, 15)
 
         self.fine_emb = nn.Linear(768, 668)
 
@@ -198,13 +208,25 @@ class SlotFilling(nn.Module):
 
 
 
-    def forward(self, x, heads, seq_len, domains, iseval=False, y=None, bin_tag=None,logits_mask = None, alpha=0):
+    def forward(self, x, seq_len, y0, y1, logits_mask = None, alpha=0, iseval=False):
         
-        bsz, seq_len = x.size(0),x.size(1)
+        bsz,pad_len = x.size(0), x.size(1)
         logits_mask = torch.tensor(logits_mask, device=self.device).float()
         attention_mask = (x != 0).byte().to(self.device)
-        reps = self.encoder(x, attention_mask=attention_mask)[0]
-        bert_out_reps = self.droupout(reps)
+        
+        # w = torch.tensor(pad_len).int()
+        # print(w.type())
+
+        x = self.embedding(x)
+
+        packed = rnn_utils.pack_padded_sequence(x, seq_len, batch_first=True, enforce_sorted=False)
+        x, _ = self.lstm(packed)
+        x, _ = rnn_utils.pad_packed_sequence(x, batch_first=True)
+
+        x = self.droupout(x)
+        
+        
+        
         labelembedding = None
         if not iseval:
             labelembedding = self.train_labelembedding
@@ -212,7 +234,7 @@ class SlotFilling(nn.Module):
         else:
             labelembedding = self.dev_test_labelembedding
 
-        reps = bert_out_reps
+        reps = x
         coarse_reps = self.coarse_emb(reps)
         coarse_logits = self.fc_for_coarse(coarse_reps)
         # coarse_logits = torch.softmax(coarse_logits, -1)
@@ -226,7 +248,7 @@ class SlotFilling(nn.Module):
 
         emb_loss = torch.tensor(0, device=self.device)
         if not iseval:
-            coarse_loss = -self.crf(emissions=coarse_logits, tags=bin_tag,
+            coarse_loss = -self.crf(emissions=coarse_logits, tags=y0,
             mask=attention_mask,reduction='mean')
             reps = self.fine_emb(reps)
             reps = torch.cat((coarse_reps, reps, coarse_logits), -1)
@@ -239,7 +261,7 @@ class SlotFilling(nn.Module):
             
             # print(add_score)
             
-            logits =  logits + 2 * add_score
+            logits =  logits + 10 * add_score
             # logits = torch.softmax(logits, -1)
 
             # logits = torch.log(logits)
@@ -252,7 +274,7 @@ class SlotFilling(nn.Module):
             # print(logits)
 
 
-            emb_loss = -self.crf_labemb(logits, y, attention_mask, 'mean')
+            emb_loss = -self.crf_labemb(logits, y1, attention_mask, 'mean')
 
         else:
             coarse_loss = torch.tensor(0, device=self.device)
@@ -268,7 +290,7 @@ class SlotFilling(nn.Module):
             # logits = torch.softmax(logits, -1)
 
             add_score = coarse_logits.matmul(logits_mask.transpose(0, 1))
-            logits =  logits + 2 * add_score
+            logits =  logits + 10 * add_score
 
 
             # logits = torch.softmax(logits, -1)
@@ -284,7 +306,7 @@ class SlotFilling(nn.Module):
 
 
         
-        return coarse_logits, logits, bert_out_reps, reps, coarse_loss, emb_loss
+        return coarse_logits, logits,  coarse_loss, emb_loss
 
 class ProjMartrix(nn.Module):
     def __init__(self, params, dataloader_tr):
@@ -427,4 +449,3 @@ class ProjMartrix(nn.Module):
             x = [' '.join(j) for j in x]
 
             yield x,y
- 

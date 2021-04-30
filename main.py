@@ -12,7 +12,7 @@ import json
 import functools
 from prettytable import PrettyTable
 import csv
-
+from src.utils import load_embedding
 
 class Main:
     def __init__(self, params, logger):
@@ -23,52 +23,19 @@ class Main:
         self.model_saved_path = None
         self.opti_saved_path = None
 
-    def do_pretrain(self):
-        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path, n_samples=params.n_samples)
-        premodel = ProjMartrix(params, dataloader_tr)  
-        premodel.to(params.device)
-        premodel.train()
-        pair_x, pair_y = premodel.get_words(params.emb_file)
-        pre_loss_func = nn.MSELoss()
-        pre_optimizer = torch.optim.Adam(premodel.parameters(), lr = params.lr)
-        for e in range(1):
-            for i, (x, y) in enumerate(premodel.batch_generator(pair_x, pair_y)):
-
-                y = torch.tensor(y, device= params.device)
-                output = premodel(x, y)
-                pre_optimizer.zero_grad()
-                loss = pre_loss_func(output, y)            
-                if i % 50 == 0:
-                    self.logger.info("MSE loss: %.4f" % loss)
-                loss.backward()
-                pre_optimizer.step()
-        
-
-        proj_saved_path = os.path.join(self.params.dump_path, "proj.pth")
-        torch.save({"projection_matrix" : premodel.state_dict() },proj_saved_path)
-
     def do_train(self):
-        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx, train_mask, test_mask = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path, n_samples=params.n_samples)
-        premodel = None
-        # if (not os.path.exists(os.path.join(self.params.dump_path, "proj.pth"))) and (self.params.proj == 'yes'):
-        #     self.do_pretrain()
-            
-            
-        # premodel = torch.load(os.path.join(self.params.dump_path, "proj.pth"), map_location=params.device)
-        # self.logger.info("load projection matrix succeed!")
-            
+        dataloader_tr, dataloader_val, dataloader_test, vocab, train_tag2idx, dev_test_tag2idx, train_mask, test_mask \
+            = get_dataloader(params.tgt_domain, params.batch_size, params.n_samples)
 
-             
+        
+        embeddings = load_embedding(vocab, 300, '/home/sh/data/glove.6B.300d.txt')
 
         dev_test_idx2tag = {v:k for k,v in dev_test_tag2idx.items()}
         self.dev_test_idx2tag = dev_test_idx2tag
         self.train_tag2idx, self.dev_test_tag2idx = train_tag2idx, dev_test_tag2idx
         
-        self.slt = Model.SlotFilling(params, train_tag2idx, dev_test_tag2idx, bert_path=params.bert_path,device=params.device)
-        if premodel is not None:
 
-            self.slt.Proj_W.data = premodel["projection_matrix"]["Proj"]
-
+        self.slt = Model.SlotFilling(params, embeddings,  train_tag2idx, dev_test_tag2idx,device=params.device)
 
         self.optimizer = torch.optim.Adam(self.slt.parameters(), lr = params.lr)
 
@@ -90,24 +57,15 @@ class Main:
             sim_loss_list = []
             mse_loss_list = []
 
-            for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len, coarse_label, bin_tag) in pbar:
-                
-                
-
-                bin_tag = bin_tag.to(params.device)
-                y = y.to(params.device)
-                coarse_label = coarse_label.to(params.device)
+            for i, (x, seq_len,  y0, y1, domains) in pbar:
+                y1 = y1.to(params.device)
+                y0 = y0.to(params.device)
+                seq_len = seq_len.to(params.device)
                 bsz, max_len = x.size(0), x.size(1)
                 x = x.to(params.device)
-                pad_heads = pad_heads.to(params.device)
-                coarse_logits, final_logits, bert_out_reps, reps, loss_coarse, loss_sim = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, bin_tag=bin_tag, domains=domains, logits_mask = train_mask, alpha = epoch)
-
+                coarse_logits, final_logits, loss_coarse, loss_sim = self.slt(x=x,  seq_len=seq_len, y0=y0, y1=y1, logits_mask = train_mask, alpha = epoch)
 
                 self.optimizer.zero_grad()
-
-                # loss_sim = self.loss_func(final_logits.view(bsz*max_len, -1), y.view(-1))
-
-                # loss_coarse = self.loss_func(coarse_logits.view(bsz*max_len, -1), bin_tag.view(-1))
 
                 if epoch < 2:
                     loss = loss_coarse 
@@ -161,6 +119,7 @@ class Main:
         with open(json_file,'w') as f:
             f.write(json.dumps(best_slot_f1) + '\n')
         f.close()
+        
 
     def finetag_to_coarsetag(self):
         res_dict = {'<PAD>':"pad", "O":"O"}
@@ -188,13 +147,13 @@ class Main:
         coarse_gold = []
         coarse_pred = []
         word_list = []
-        for i,(words, x, is_heads, pad_heads, tags, y, domains, seq_len, coarse_label, bin_tag) in pbar:
-            word_list.extend(words)
-            y = y.to(params.device)
+        for i, (x, seq_len,  y0, y1, domains) in pbar:
+            y1 = y1.to(params.device)
+            y0 = y0.to(params.device)
+            seq_len = seq_len.to(params.device)
             bsz, max_len = x.size(0), x.size(1)
             x = x.to(params.device)
-            pad_heads = pad_heads.to(params.device)
-            coarse_logits, final_logits, bert_out_reps, reps, loss_holder, emb_loss_holder = self.slt(x=x, heads=pad_heads, seq_len=seq_len, y=y, iseval = True, domains=domains, logits_mask = test_mask)
+            coarse_logits, final_logits, loss_coarse, loss_sim = self.slt(x=x,  seq_len=seq_len, y0=y0, y1=y1, logits_mask = test_mask, alpha = 0, iseval=True)
             # score = torch.softmax(final_logits, -1)
             # score = score.argmax(-1)
 
@@ -210,7 +169,7 @@ class Main:
             # coarse_score = torch.softmax(coarse_logits, -1)
             # emb_list = final_logits.argmax(-1)
 
-            for j in range(len(pad_heads)):
+            for j in range(len(x)):
                 _pred = []
                 _gold = []
 
@@ -218,46 +177,25 @@ class Main:
                 _coarse_gold = []
 
                 for k in range(1, seq_len[j] - 1):
-                    if pad_heads[j][k].item() == 1:
-                        pred_fine_tag = self.dev_test_idx2tag[emb_list[j][k]]
-                        
-                        gold_fine_tag = self.dev_test_idx2tag[y[j][k].item()]
+                    pred_fine_tag = self.dev_test_idx2tag[emb_list[j][k]]
+                    
+                    gold_fine_tag = self.dev_test_idx2tag[y1[j][k].item()]
 
-                        _pred.append(pred_fine_tag)
-                        _gold.append(gold_fine_tag)
+                    _pred.append(pred_fine_tag)
+                    _gold.append(gold_fine_tag)
 
 
-                        # _coarse_gold.append(fine2coarsetag[gold_fine_tag])
-                        # _coarse_pred.append(fine2coarsetag[pred_fine_tag])
-
-                        # if bins_labels[bin_tag[j][k].item()] == 'pad':
-                        #     _coarse_gold.append('O')
-                        # else:      
-                        #     _coarse_gold.append(bins_labels[bin_tag[j][k].item()])
+                    if bins_labels[y0[j][k].item()] == 'pad':
+                        _coarse_gold.append('O')
+                    else:      
+                        _coarse_gold.append(bins_labels[y0[j][k].item()])
 
 
 
-                        # if bins_labels[best_list[j][k]] == 'pad':
-                        #     _coarse_pred.append('O')
-                        # else:      
-                        #     _coarse_pred.append(bins_labels[best_list[j][k]])
-
-
-
-
-
-
-                        if bins_labels[bin_tag[j][k].item()] == 'pad':
-                            _coarse_gold.append('O')
-                        else:      
-                            _coarse_gold.append(bins_labels[bin_tag[j][k].item()])
-
-
-
-                        if bins_labels[best_list[j][k]] == 'pad':
-                            _coarse_pred.append('O')
-                        else:      
-                            _coarse_pred.append(bins_labels[best_list[j][k]])
+                    if bins_labels[best_list[j][k]] == 'pad':
+                        _coarse_pred.append('O')
+                    else:      
+                        _coarse_pred.append(bins_labels[best_list[j][k]])
 
 
 
@@ -267,6 +205,8 @@ class Main:
                 coarse_gold.append(_coarse_gold)
                 coarse_pred.append(_coarse_pred)
         
+        self.slt.train()
+        badcase = False
         if badcase:
 
 

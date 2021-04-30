@@ -12,12 +12,12 @@ do
     --device cuda:1 \
     --dump_path /home/sh/data/experiments \
     --bert_path /home/sh/bert-base-uncased \
+    --lr 0.001 \
     --file_path /home/sh/data/coachdata/snips \
     --log_file /home/sh/data/experiments/zero_shot_logits \
     --corps_path /home/sh/data/corps.txt \
     --emb_file /home/sh/data \
     --model_saved_path /home/sh/data/experiments/zero_shot_logits/${tag_dm} \
-    --emb_src Bert \
     --n_samples 0 \
     --proj no
 
