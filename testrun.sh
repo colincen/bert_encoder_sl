@@ -35,7 +35,7 @@ do
     --tgt_domain ${tag_dm} \
     --model_type train \
     --device cuda:1 \
-    --batch_size 32
+    --batch_size 32 \
     --lr 0.001 \
     --dump_path /home/sh/data/experiments \
     --bert_path /home/sh/bert-base-uncased \
@@ -44,7 +44,6 @@ do
     --corps_path /home/sh/data/corps.txt \
     --emb_file /home/sh/data \
     --model_saved_path /home/sh/data/experiments/zero_shot_logits/${tag_dm} \
-    --emb_src Bert \
     --n_samples 0 \
     --proj no
 

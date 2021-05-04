@@ -4,12 +4,14 @@ import torch
 import torch.nn as nn
 from src.datareader import get_dataloader, coarse, bins_labels,father_son_slot
 from src.conlleval import evaluate
+from src.conll import evaluate as evaluate_no_logger
 from config import get_params, init_experiment
 from tqdm import tqdm
 import numpy as np
 import os
 import json
 import functools
+import copy
 from prettytable import PrettyTable
 import csv
 from src.utils import load_embedding
@@ -67,7 +69,7 @@ class Main:
 
                 self.optimizer.zero_grad()
 
-                if epoch < 2:
+                if epoch < 3:
                     loss = loss_coarse 
                 else:
                     loss = loss_sim  + loss_coarse
@@ -89,8 +91,10 @@ class Main:
                     ))
                 if i > 0 and i % 50 == 0:
                     # continue
-                    dev_f1, di_dev = self.do_test(dataloader_val, test_mask)
-                    test_f1, di_test = self.do_test(dataloader_test, test_mask)
+                    pre_f1 = best_dev_f1
+                    dev_f1, di_dev = self.do_test(dataloader_val, test_mask, best_dev_f1)
+                    if pre_f1 < dev_f1:
+                        test_f1, di_test = self.do_test(dataloader_test, test_mask, -1)
                     if dev_f1 > best_dev_f1:
                         patience = 0
                         best_dev_f1 = dev_f1
@@ -98,9 +102,10 @@ class Main:
                         best_test_f1 = test_f1
                         best_slot_f1 = di_test
                         self.save_model()                    
-                
-            dev_f1, di_dev = self.do_test(dataloader_val, test_mask)
-            test_f1, di_test = self.do_test(dataloader_test, test_mask)
+            pre_f1 = best_dev_f1
+            dev_f1, di_dev = self.do_test(dataloader_val, test_mask, best_dev_f1)
+            if pre_f1 < dev_f1:
+                test_f1, di_test = self.do_test(dataloader_test, test_mask, -1)
             if dev_f1 > best_dev_f1:
                 patience = 0
                 best_dev_f1 = dev_f1
@@ -135,7 +140,7 @@ class Main:
                     res_dict[_I] = "I-" + k 
         return res_dict
    
-    def do_test(self, data_gen, test_mask, badcase=True):
+    def do_test(self, data_gen, test_mask, best_dev_f1=None, badcase=True):
 
         self.slt.eval()
         pbar = tqdm(enumerate(data_gen), total=len(data_gen))
@@ -243,7 +248,12 @@ class Main:
                     p.append("O")
                 else:
                     p.append(j)
-        (prec, rec, f1), di = evaluate(g, p, self.logger)
+        
+        coar_g = copy.deepcopy(g)
+        coar_p = copy.deepcopy(p)
+        # if best_dev_f1 is not None and f1 > best_dev_f1:
+        #     (prec, rec, f1), di = evaluate(g, p, self.logger)
+        #     islogger = True
 
 
         g.clear()
@@ -318,9 +328,15 @@ class Main:
 
 
 
+        di = {}
+        (prec, rec, f1) = evaluate_no_logger(g, p, False)        
+        if best_dev_f1 is not None and f1 > best_dev_f1:
+            evaluate(coar_g, coar_p, self.logger)
+            (prec, rec, f1), di = evaluate(g, p, self.logger)
 
-        
-        (prec, rec, f1), di = evaluate(g, p, self.logger)
+
+       
+
         return f1, di
 
     def save_model(self):
@@ -336,7 +352,7 @@ class Main:
         opti_saved_path = os.path.join(self.params.dump_path, "opti.pth")
         torch.save(self.optimizer.state_dict(), opti_saved_path)
         logger.info("Best model opti has been saved to %s" % opti_saved_path)
-
+        logger.info("-"*50)
         self.model_saved_path = model_saved_path
         self.opti_saved_path = opti_saved_path
 
