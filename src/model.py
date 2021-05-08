@@ -191,7 +191,6 @@ class SlotFilling(nn.Module):
         self.fine_emb = nn.Linear(768, 668)
 
 
-        # self.fc_for_concat_emb = nn.Linear(768 * 2, 768)
 
 
 

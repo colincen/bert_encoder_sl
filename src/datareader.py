@@ -4,121 +4,79 @@ import torch
 
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
-slot_list = ['<PAD>','playlist', 'music_item', 'geographic_poi', 'facility', 
-'movie_name', 'location_name', 'restaurant_name', 'track', 'restaurant_type', 
-'object_part_of_series_type', 'country', 'service', 'poi', 'party_size_description',
-'served_dish', 'genre', 'current_location', 'object_select', 'album', 'object_name',
-'state', 'sort', 'object_location_type', 'movie_type', 'spatial_relation', 'artist', 
-'cuisine', 'entity_name', 'object_type', 'playlist_owner', 'timeRange', 'city',
-'rating_value', 'best_rating', 'rating_unit', 'year', 'party_size_number',
-'condition_description', 'condition_temperature']
+slot_list = ['<PAD>','price', 'leave',
+ 'food', 'time', 'day', 'type', 'arrive', 'people', 
+ 'depart', 'stars', 'stay', 'name', 'dest', 'area']
 
-y_set = ['<PAD>' ,'O', 'B-playlist', 'I-playlist', 'B-music_item', 'I-music_item', 'B-geographic_poi', 
-'I-geographic_poi', 'B-facility', 'I-facility', 'B-movie_name', 'I-movie_name', 'B-location_name', 'I-location_name', 
-'B-restaurant_name', 'I-restaurant_name', 'B-track', 'I-track', 'B-restaurant_type', 'I-restaurant_type', 
-'B-object_part_of_series_type', 'I-object_part_of_series_type', 'B-country', 'I-country', 'B-service', 'I-service',
- 'B-poi', 'I-poi', 'B-party_size_description', 'I-party_size_description', 'B-served_dish', 'I-served_dish', 
- 'B-genre',  'I-genre', 'B-current_location', 'I-current_location', 'B-object_select', 'I-object_select', 
- 'B-album', 'I-album', 'B-object_name', 'I-object_name', 'B-state', 'I-state', 'B-sort', 'I-sort',
-  'B-object_location_type', 'I-object_location_type', 'B-movie_type', 'I-movie_type', 'B-spatial_relation', 'I-spatial_relation',
-   'B-artist', 'I-artist', 'B-cuisine', 'I-cuisine', 'B-entity_name', 'I-entity_name', 'B-object_type', 'I-object_type', 
-   'B-playlist_owner', 'I-playlist_owner', 'B-timeRange', 'I-timeRange', 'B-city', 'I-city', 'B-rating_value',
-    'B-best_rating', 'B-rating_unit', 'B-year', 'B-party_size_number', 'B-condition_description', 'B-condition_temperature']
+y_set = ['<PAD>' ,'O', 'B-price', 'I-price',
+    'B-leave','I-leave', 
+    'B-food', 'I-food',  
+    'B-time','I-time', 
+    'B-day','I-day',
+    'B-type','I-type',
+    'B-arrive','I-arrive',
+    'B-people','I-people',
+    'B-depart','I-depart',
+    'B-stars','I-stars',
+    'B-stay', 'I-stay',
+    'B-name', 'I-name',
+    'B-dest','I-dest', 
+    'B-area','I-area']
 
 
-slot2desp = {'playlist': 'playlist',
- 'music_item': 'music item',
-  'geographic_poi': 'geographic position',
- 'facility': 'facility',
-#   'movie_name': 'movie',
-    'movie_name': 'movie name',
-#    'location_name': 'location',
-      'location_name': 'location name',
-    # 'restaurant_name': 'restaurant',
-    'restaurant_name': 'restaurant name',
-  'track': 'track',
-   'restaurant_type': 'restaurant type',
-    'object_part_of_series_type': 'series',
-     'country': 'country', 
-  'service': 'service',
-   'poi': 'position',
-    'party_size_description': 'person',
-     'served_dish': 'served dish',
-      'genre': 'genre', 
-  'current_location': 'current location',
-   'object_select': 'this current',
-    'album': 'album',
-    #  'object_name': 'object name',
-          'object_name': 'object name',
-   'state': 'location', 
-   'sort': 'type', 
-   'object_location_type': 'location type',
-    'movie_type': 'movie type',
-    'spatial_relation': 'spatial relation',
-     'artist': 'artist', 
-     'cuisine': 'cuisine',
-      'entity_name': 'entity name',
-     'object_type': 'object type',
-      'playlist_owner': 'owner',
-       'timeRange': 'time range', 
-       'city': 'city',
-        'rating_value': 'rating value',
-        # 'rating_value': 'rating value num',
-      'best_rating': 'best rating',
-       'rating_unit': 'rating unit',
-        'year': 'year', 
-        # 'year': 'year num', 
-        'party_size_number': 'number', 
-      'condition_description': 'weather',
-       'condition_temperature': 'temperature'
+slot2desp = {
+        'stay':'stay',
+    'food':'food',
+    'time':'time',
+    'type' : 'type',
+    'stars':'stars',
+    'depart':'depart',
+    'area':'area',
+    'dest':'dest',
+    'people':'people',
+    'name':'name',
+    'price':'price',
+    'arrive':'arrive',
+    'day':'day',
+    'leave':'leave'
 }
-domain_set = ["AddToPlaylist", "BookRestaurant", "GetWeather",\
-     "PlayMusic", "RateBook", "SearchCreativeWork", "SearchScreeningEvent"]
+domain_set = ["train", "taxi", "restaurant", "attraction", "hotel"]
 
 domain2slot = {
-    "AddToPlaylist": ['music_item', 'playlist_owner', 'entity_name', 'playlist', 'artist'],
-
-    "BookRestaurant": ['city', 'facility', 'timeRange', 'restaurant_name', 'country', 'cuisine', 'restaurant_type', 'served_dish', 'party_size_number', 
-    'poi', 'sort', 'spatial_relation', 'state', 'party_size_description'],
-
-    "GetWeather": ['city', 'state', 'timeRange', 'current_location', 'country', 'spatial_relation', 'geographic_poi', 'condition_temperature', 'condition_description'],
-    "PlayMusic": ['genre', 'music_item', 'service', 'year', 'playlist', 'album','sort', 'track', 'artist'],
-    "RateBook": ['object_part_of_series_type', 'object_select', 'rating_value', 'object_name', 'object_type', 'rating_unit', 'best_rating'],
-    "SearchCreativeWork": ['object_name', 'object_type'],
-    "SearchScreeningEvent": ['timeRange', 'movie_type', 'object_location_type','object_type', 'location_name', 'spatial_relation', 'movie_name']
+    'train': ['depart','day','people','leave','arrive','dest'],
+    'taxi': ['depart','dest','leave','arrive'],
+    'hotel': ['day','price','area','people','name','stay','type','stars'],
+    'restaurant' : ['day','food','price','area','people','name','time'],
+    'attraction' : ['area','name','type']
 }
 
+coarse = ['pad', 'O', 'person', 'location', 'special_name', 'common_name', 'number', 'direction', 'others']
+bins_labels = ['pad', 'O', 'B-person','I-person' , 'B-location', 'I-location', 'B-special_name', 'I-special_name', 'B-common_name','I-common_name', 'B-number','I-number', 'B-direction','I-direction', 'B-others','I-others']
 
+father_son_slot={
+    'pad':['<PAD>'],
+    'O':['O'],
+    'person':[],
+    'location':['name','depart','dest'],
+    'special_name':['food'],
+    'common_name':['type','price'],
+    'number':['stay','stars','leave','arrive','time','day','people'],
+    'direction':['area'],
+    'others':[]
+}
 
-# coarse = ['pad', 'O', 'person', 'location', 'special_name', 'common_name', 'number', 'direction', 'others']
-# bins_labels = ['pad', 'O', 'B-person','I-person' , 'B-location', 'I-location', 'B-special_name', 'I-special_name', 'B-common_name','I-common_name', 'B-number','I-number', 'B-direction','I-direction', 'B-others','I-others']
-
-# father_son_slot={
-#     'pad':['<PAD>'],
-#     'O':['O'],
-#     'person':['artist','party_size_description'],
-#     'location':['state','city','geographic_poi','object_location_type','location_name','country','poi'],
-#     'special_name':['album','service','entity_name','playlist','music_item','track','movie_name','object_name',
-#                     'served_dish','restaurant_name','cuisine'],
-#     'common_name':['object_type', 'object_part_of_series_type','movie_type','restaurant_type','genre','facility',
-#                 'condition_description','condition_temperature'],
-#     'number':['rating_value','best_rating','year','party_size_number','timeRange'],
-#     'direction':['spatial_relation','current_location','object_select'],
-#     'others':['rating_unit', 'sort','playlist_owner']
+# # bert reps cluster 5
+# father_son_slot = {
+# 'pad':['<PAD>'],
+# 'O':['O'],    
+# 'A': ['entity_name', 'playlist', 'artist', 'city', 'party_size_description', 'served_dish', 'poi', 'restaurant_name', 'album', 'track', 'object_name', 'movie_name'], 
+# 'B': ['playlist_owner', 'music_item', 'party_size_number', 'state', 'spatial_relation', 'current_location', 'condition_temperature', 'year', 'genre', 'object_select', 'rating_value', 'object_part_of_series_type'], 
+# 'C': ['restaurant_type', 'sort', 'cuisine', 'facility', 'condition_description', 'service', 'object_type', 'movie_type', 'location_name'], 
+# 'D': ['timeRange', 'country', 'geographic_poi'], 
+# 'E': ['best_rating', 'rating_unit', 'object_location_type']
 # }
-
-# bert reps cluster 5
-father_son_slot = {
-'pad':['<PAD>'],
-'O':['O'],    
-'A': ['entity_name', 'playlist', 'artist', 'city', 'party_size_description', 'served_dish', 'poi', 'restaurant_name', 'album', 'track', 'object_name', 'movie_name'], 
-'B': ['playlist_owner', 'music_item', 'party_size_number', 'state', 'spatial_relation', 'current_location', 'condition_temperature', 'year', 'genre', 'object_select', 'rating_value', 'object_part_of_series_type'], 
-'C': ['restaurant_type', 'sort', 'cuisine', 'facility', 'condition_description', 'service', 'object_type', 'movie_type', 'location_name'], 
-'D': ['timeRange', 'country', 'geographic_poi'], 
-'E': ['best_rating', 'rating_unit', 'object_location_type']
-}
-coarse = ['pad', 'O', 'A', 'B', 'C', 'D', 'E']
-bins_labels = ['pad', 'O', 'B-A','I-A' , 'B-B', 'I-B', 'B-C', 'I-C', 'B-D','I-D', 'B-E','I-E']
+# coarse = ['pad', 'O', 'A', 'B', 'C', 'D', 'E']
+# bins_labels = ['pad', 'O', 'B-A','I-A' , 'B-B', 'I-B', 'B-C', 'I-C', 'B-D','I-D', 'B-E','I-E']
 
 
 class NerDataset(Dataset):

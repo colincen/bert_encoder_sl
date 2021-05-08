@@ -23,7 +23,7 @@
 # done
 
 
-tgt_domains=(SearchCreativeWork)
+tgt_domains=(attraction restaurant)
 # gamma_list=(0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9)
 
 for tag_dm in ${tgt_domains[@]}
@@ -34,10 +34,10 @@ do
     --exp_id ${tag_dm} \
     --tgt_domain ${tag_dm} \
     --model_type train \
-    --device cuda:1 \
+    --device cuda:0 \
     --dump_path /home/sh/data/experiments \
     --bert_path /home/sh/bert-base-uncased \
-    --file_path /home/sh/data/coachdata/snips \
+    --file_path /home/sh/data/coachdata/multiwoz \
     --log_file /home/sh/data/experiments/zero_shot_logits \
     --corps_path /home/sh/data/corps.txt \
     --emb_file /home/sh/data \
