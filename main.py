@@ -139,8 +139,17 @@ class Main:
 
                         best_test_f1 = test_f1
                         best_slot_f1 = di_test
-                        self.save_model()                    
-                
+                        self.save_model()         
+                    else:
+                        if epoch < 4:
+                            continue
+                        patience += 1
+                        self.logger.info("patience: %d" % patience)
+                        if patience > 6:
+                            break
+                               
+            if patience > 6:
+                break
             dev_f1, di_dev = self.do_test(dataloader_val, test_mask)
             test_f1, di_test = self.do_test(dataloader_test, test_mask)
             if dev_f1 > best_dev_f1:
@@ -151,8 +160,12 @@ class Main:
                 best_slot_f1 = di_test
                 self.save_model()
             else:
+                if epoch < 4:
+                    continue
                 patience += 1
-                if patience > 5:
+                self.logger.info("patience: %d" % patience)
+                
+                if patience > 6:
                     break
 
                 
@@ -303,8 +316,8 @@ class Main:
                     p.append("O")
                 else:
                     p.append(j)
-        (prec, rec, f1), di = evaluate(g, p, self.logger)
-
+        (prec, rec, f1), di = evaluate(g, p, self.logger,verbose= False)
+        self.logger.info("coarse_f1: %.4f" % f1)
 
         g.clear()
         p.clear()
@@ -380,7 +393,8 @@ class Main:
 
 
         
-        (prec, rec, f1), di = evaluate(g, p, self.logger)
+        (prec, rec, f1), di = evaluate(g, p, self.logger,verbose= False)
+        self.logger.info('fine_f1: %.4f'%f1)
         return f1, di
 
     def save_model(self):

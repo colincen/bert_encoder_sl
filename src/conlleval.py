@@ -177,7 +177,13 @@ def get_result(correct_chunks, true_chunks, pred_chunks,
     prec, rec, f1 = calc_metrics(sum_correct_chunks, sum_pred_chunks, sum_true_chunks)
     res = (prec, rec, f1)
     if not verbose:
-        return res
+        d = {}
+        d={'total':{'prec':res[0], 'rec':res[1], 'f1':res[2]}}
+        # for each chunk type, compute precision, recall and FB1 (default values are 0.0)
+        for t in chunk_types:
+            prec, rec, f1 = calc_metrics(correct_chunks[t], pred_chunks[t], true_chunks[t])
+            d[t] = {'prec': prec, 'rec': rec, 'f1': f1}
+        return res,d
 
     # print overall performance, and performance per chunk type
 

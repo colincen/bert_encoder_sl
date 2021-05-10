@@ -183,20 +183,9 @@ class SlotFilling(nn.Module):
         self.Proj_W = nn.Parameter(torch.empty(768, 300))
         self.droupout = nn.Dropout(params.dropout)
         torch.nn.init.uniform_(self.Proj_W, -0.1, 0.1)
-
-
         self.coarse_emb = nn.Linear(768, 100)
         self.fc_for_coarse = nn.Linear(100, 16)
-
         self.fine_emb = nn.Linear(768, 668)
-
-
-        # self.fc_for_concat_emb = nn.Linear(768 * 2, 768)
-
-
-
-
-
 
     def forward(self, x, heads, seq_len, domains, iseval=False, y=None, bin_tag=None,logits_mask = None, alpha=0):
         
@@ -215,75 +204,21 @@ class SlotFilling(nn.Module):
         reps = bert_out_reps
         coarse_reps = self.coarse_emb(reps)
         coarse_logits = self.fc_for_coarse(coarse_reps)
-        # coarse_logits = torch.softmax(coarse_logits, -1)
-        
-        # for i in coarse_logits:
-        #     for j in i:
-        #         for k in j:
-        #             print(k.item())
-        #         print('-'*10)
-        
-
         emb_loss = torch.tensor(0, device=self.device)
+
+        reps = self.fine_emb(reps)
+        reps = torch.cat((coarse_reps, reps, coarse_logits), -1)
+        logits = self.sim_func(reps, labelembedding)
+        add_score = coarse_logits.matmul(logits_mask.transpose(0, 1))
+        logits =  logits + 2 * add_score
+
         if not iseval:
             coarse_loss = -self.crf(emissions=coarse_logits, tags=bin_tag,
             mask=attention_mask,reduction='mean')
-            reps = self.fine_emb(reps)
-            reps = torch.cat((coarse_reps, reps, coarse_logits), -1)
-            logits = self.sim_func(reps, labelembedding)
-            
-            
-            # logits = torch.softmax(logits, -1)
-
-            add_score = coarse_logits.matmul(logits_mask.transpose(0, 1))
-            
-            # print(add_score)
-            
-            logits =  logits + 2 * add_score
-            # logits = torch.softmax(logits, -1)
-
-            # logits = torch.log(logits)
-            
-            # loss_func = nn.NLLLoss()
-            # emb_loss = loss_func(logits.view(bsz*seq_len ,-1), y.view(-1))
-            
-
-
-            # print(logits)
-
-
             emb_loss = -self.crf_labemb(logits, y, attention_mask, 'mean')
-
         else:
             coarse_loss = torch.tensor(0, device=self.device)
-            
-            reps = self.fine_emb(reps)
-            reps = torch.cat((coarse_reps, reps, coarse_logits), -1)
-            logits = self.sim_func(reps, labelembedding)
 
-
-                    
-
-
-            # logits = torch.softmax(logits, -1)
-
-            add_score = coarse_logits.matmul(logits_mask.transpose(0, 1))
-            logits =  logits + 2 * add_score
-
-
-            # logits = torch.softmax(logits, -1)
-
-
-
-        # reps = self.fine_emb(reps)
-
-        # reps = self.fc_for_concat_emb(torch.cat((coarse_reps, reps), -1))
-
-        # if self.params.proj == 'no':
-        #     final_logits = self.sim_func(reps, labelembedding)
-
-
-        
         return coarse_logits, logits, bert_out_reps, reps, coarse_loss, emb_loss
 
 class ProjMartrix(nn.Module):
