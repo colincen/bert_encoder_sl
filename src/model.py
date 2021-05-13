@@ -45,14 +45,14 @@ class LabelEmbeddingFactory:
             if tag == "<PAD>":
                 # tag_emb = np.zeros(dim+3+9, dtype=np.float32)
                 tag_emb = np.concatenate((np.array([0,0,0],dtype = np.float32), 
-                self.coarse2vec[self.fine2coarse[tag]], 
+                # self.coarse2vec[self.fine2coarse[tag]], 
                 np.zeros(dim, dtype=np.float32)), 0)
 
             elif tag == "O":
                 # tag_emb = np.zeros(dim+3+9, dtype=np.float32)
                 # tag_emb[2] = 1
                 tag_emb = np.concatenate((np.array([0,0,1], dtype=np.float32), 
-                self.coarse2vec[self.fine2coarse[tag]], 
+                # self.coarse2vec[self.fine2coarse[tag]], 
                 np.zeros(dim, dtype=np.float32)), 0)
 
             ####################
@@ -68,14 +68,14 @@ class LabelEmbeddingFactory:
                 reps = reps.detach().cpu().numpy()
                 if tag[0] == "B":
                     reps = np.concatenate((np.array([1,0,0], dtype=np.float32), 
-                    self.coarse2vec[self.fine2coarse[tag[2:]]],
+                    # self.coarse2vec[self.fine2coarse[tag[2:]]],
                     reps), 0)
                     
 
 
                 elif tag[0] == "I":
                     reps = np.concatenate((np.array([0,1,0], dtype=np.float32), 
-                    self.coarse2vec[self.fine2coarse[tag[2:]]],
+                    # self.coarse2vec[self.fine2coarse[tag[2:]]],
                     reps), 0)
                 
 
@@ -163,7 +163,7 @@ class SlotFilling(nn.Module):
         self.encoder = BertModel.from_pretrained(bert_path)
         self.device = device
         self.params = params
-        self.crf = CRF(num_tags=16, batch_first=True)
+        self.crf = CRF(num_tags=params.coarse_num*2+2, batch_first=True)
         labelembedding = LabelEmbeddingFactory()
 
         self.train_labelembedding = labelembedding.BertEncoderAve(train_tag2idx,self.tokenizer,self.encoder).to(device)
@@ -178,13 +178,13 @@ class SlotFilling(nn.Module):
                                                      batch_first = True)
 
         
-        self.sim_func = Similarity(size=(768 + 16, 768 + 3 + 9), type='mul')
+        self.sim_func = Similarity(size=(768 + params.coarse_num*2+2, 768 + 3), type='mul')
         self.sim_func2 = Similarity(size=(768, 300 + 3), type='mul')
         self.Proj_W = nn.Parameter(torch.empty(768, 300))
         self.droupout = nn.Dropout(params.dropout)
         torch.nn.init.uniform_(self.Proj_W, -0.1, 0.1)
         self.coarse_emb = nn.Linear(768, 100)
-        self.fc_for_coarse = nn.Linear(100, 16)
+        self.fc_for_coarse = nn.Linear(100, params.coarse_num*2+2)
         self.fine_emb = nn.Linear(768, 668)
 
     def forward(self, x, heads, seq_len, domains, iseval=False, y=None, bin_tag=None,logits_mask = None, alpha=0):
@@ -210,7 +210,7 @@ class SlotFilling(nn.Module):
         reps = torch.cat((coarse_reps, reps, coarse_logits), -1)
         logits = self.sim_func(reps, labelembedding)
         add_score = coarse_logits.matmul(logits_mask.transpose(0, 1))
-        logits =  logits + 2 * add_score
+        logits =  logits + self.params.gamma * add_score
 
         if not iseval:
             coarse_loss = -self.crf(emissions=coarse_logits, tags=bin_tag,

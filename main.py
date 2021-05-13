@@ -189,7 +189,7 @@ class Main:
                     res_dict[_I] = "I-" + k 
         return res_dict
    
-    def do_test(self, data_gen, test_mask, badcase=True):
+    def do_test(self, data_gen, test_mask, badcase=True, analy=False):
 
         self.slt.eval()
         pbar = tqdm(enumerate(data_gen), total=len(data_gen))
@@ -316,7 +316,7 @@ class Main:
                     p.append("O")
                 else:
                     p.append(j)
-        (prec, rec, f1), di = evaluate(g, p, self.logger,verbose= False)
+        (prec, rec, f1), di = evaluate(g, p, self.logger,verbose= analy)
         self.logger.info("coarse_f1: %.4f" % f1)
 
         g.clear()
@@ -393,7 +393,7 @@ class Main:
 
 
         
-        (prec, rec, f1), di = evaluate(g, p, self.logger,verbose= False)
+        (prec, rec, f1), di = evaluate(g, p, self.logger,verbose= analy)
         self.logger.info('fine_f1: %.4f'%f1)
         return f1, di
 
@@ -429,7 +429,7 @@ class Main:
         dev_test_idx2tag = {v:k for k,v in dev_test_tag2idx.items()}
         self.dev_test_idx2tag = dev_test_idx2tag
         self.train_tag2idx, self.dev_test_tag2idx = train_tag2idx, dev_test_tag2idx
-        self.do_test(dataloader_test, test_mask, True)
+        self.do_test(dataloader_test, test_mask, True, True)
 
 if __name__ == "__main__":
     params = get_params()

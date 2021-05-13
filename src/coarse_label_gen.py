@@ -60,8 +60,12 @@ class coarse_fine:
     def __init__(self, dataset, type):
         if type == 'pos':
             coarse, bins_labels, father2son = self.buildfrompos(dataset)
-        if type == 'bert_5':
-            coarse, bins_labels, father2son = self.buildfromner(dataset)
+        if type == 'bert_5_3':
+            coarse, bins_labels, father2son = self.buildfrombertreps_53(dataset)
+        if type == 'bert_7_4':
+            coarse, bins_labels, father2son = self.buildfrombertreps_74(dataset)
+
+        self.coarse, self.bins_labels, self.father2son = coarse, bins_labels, father2son
 
     def buildfrompos(self, dataset):
         if dataset == 'snips':
@@ -71,7 +75,7 @@ class coarse_fine:
                 'NUM':['timeRange','party_size_number', 'year'],
                 'X':['state','rating_value','best_rating'],
                 'ADJADV':['spatial_relation','cuisine', 'facility', 'condition_temperature', 'object_select','sort','movie_name','current_location'],
-                'PROPN':['music_item','playlist_owner','entity_name','playlist','artist','city','restaurant_name','country','poi','location_name','geo','geographic_poi','album','track','object_part_of_series_type'],
+                'PROPN':['music_item','playlist_owner','entity_name','playlist','artist','city','restaurant_name','country','poi','location_name','geo','geographic_poi','album','track','object_part_of_series_type','object_name'],
                 'NOUN':['restaurant_type','served_dish','party_size_description','rating_unit','genre','condition_description','object_type','object_location_type','movie_type'],
                 'VERB':['sort','service']
             }
@@ -92,46 +96,83 @@ class coarse_fine:
 
         return coarse, bins_labels, father_son_slot
 
-    def buildfrombertreps_5(self, dataset):
+    def buildfrombertreps_53(self, dataset):
         if dataset == 'snips':
             father_son_slot={
                 'pad':['<PAD>'],
                 'O':['O'],
-                
+                'A': ['entity_name', 'playlist', 'artist', 'city', 'party_size_description', 'served_dish', 'poi', 'restaurant_name', 'album', 'track', 'object_name', 'movie_name'], 
+                'B': ['playlist_owner', 'music_item', 'party_size_number', 'state', 'spatial_relation', 'current_location', 'condition_temperature', 'year', 'genre', 'object_select', 'rating_value', 'object_part_of_series_type'], 
+                'C': ['restaurant_type', 'sort', 'cuisine', 'facility', 'condition_description', 'service', 'object_type', 'movie_type', 'location_name'], 
+                'D': ['timeRange', 'country', 'geographic_poi'], 
+                'E': ['best_rating', 'rating_unit', 'object_location_type']
+          
             }
-            bins_labels = ['pad','O',]
-            coarse = ['pad','O',]
+            bins_labels = ['pad','O','B-A','I-A','B-B','I-B','B-C','I-C','B-D','I-D','B-E','I-E']
+            coarse = ['pad','O','A','B','C','D','E']
 
         if dataset == 'multiwoz':
             father_son_slot = {
                 'pad':['<PAD>'],
                 'O':['O'],
-                
+                'A':['dest','depart','day','price','type','name','food'],
+                'B':['arrive','leave','time'],
+                'C':['people','stay','stars','area']
+
             }
-            bins_labels = ['pad','O',]
-            coarse = ['pad','O',]
+            bins_labels = ['pad','O','B-A','I-A','B-B','I-B','B-C','I-C']
+            coarse = ['pad','O','A','B','C']
+
+        return coarse, bins_labels, father_son_slot
+
+    def buildfrombertreps_74(self, dataset):
+        if dataset == 'snips':
+            father_son_slot={
+                'pad':['<PAD>'],
+                'O':['O'],
+                'A': ['entity_name', 'timeRange', 'party_size_description', 'album', 'track', 'object_name', 'movie_name'], 
+                'B': ['playlist', 'artist', 'city', 'served_dish', 'poi', 'restaurant_name', 'genre', 'object_location_type', 'location_name'], 
+                'C': ['playlist_owner', 'sort', 'spatial_relation', 'current_location', 'condition_temperature', 'service', 'year', 'object_select', 'object_part_of_series_type'],
+                'D': ['music_item', 'state', 'restaurant_type', 'country', 'cuisine', 'facility', 'condition_description', 'object_type', 'rating_unit'], 
+                'E': ['party_size_number', 'rating_value', 'best_rating'], 
+                'F': ['geographic_poi'], 
+                'G': ['movie_type']          
+            }
+            bins_labels = ['pad','O','B-A','I-A','B-B','I-B','B-C','I-C','B-D','I-D','B-E','I-E','B-F','I-F','B-G','I-G']
+            coarse = ['pad','O','A','B','C','D','E','F','G']
+
+
+        if dataset == 'multiwoz':
+            father_son_slot = {
+                'pad':['<PAD>'],
+                'O':['O'],
+                'A': ['dest', 'depart'], 
+                'B': ['arrive', 'leave', 'time'], 
+                'C': ['day', 'price', 'type', 'area', 'name', 'food'], 
+                'D': ['people', 'stay', 'stars']
+            }
+            bins_labels = ['pad','O','B-A','I-A','B-B','I-B','B-C','I-C','B-D','I-D']
+            coarse = ['pad','O','A','B','C','D']
 
         return coarse, bins_labels, father_son_slot
 
 
 
+# def gen_ner(slot2example):
+#     res = {}
+#     for k, v in slot2example.items():
+#         res[k] = []
+#         for e in v:
+#             doc = nlp(e)
+#             temp = []
+#             for i in doc.ents:
+#                 temp.append(i.label_)
+#             res[k].append(temp)
+#     return res
 
 
-def gen_ner(slot2example):
-    res = {}
-    for k, v in slot2example.items():
-        res[k] = []
-        for e in v:
-            doc = nlp(e)
-            temp = []
-            for i in doc.ents:
-                temp.append(i.label_)
-            res[k].append(temp)
-    return res
-
-
-d = gen_ner(snips_data)
-for k,v in d.items():
-    print(k)
-    print(v)
-    print('-'*10)
+# d = gen_ner(snips_data)
+# for k,v in d.items():
+#     print(k)
+#     print(v)
+#     print('-'*10)

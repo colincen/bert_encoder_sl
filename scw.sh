@@ -9,7 +9,7 @@ do
     --exp_id ${tag_dm} \
     --tgt_domain ${tag_dm} \
     --model_type train \
-    --device cuda:0 \
+    --device cuda:1 \
     --dump_path /home/sh/data/experiments \
     --bert_path /home/sh/bert-base-uncased \
     --file_path /home/sh/data/coachdata/snips \
@@ -19,6 +19,8 @@ do
     --model_saved_path /home/sh/data/experiments/zero_shot_logits/${tag_dm} \
     --emb_src Bert \
     --n_samples 0 \
+    --coarse_num 7 \
+    --gamma 2 \
     --proj no
 
 done

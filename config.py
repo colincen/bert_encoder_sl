@@ -36,9 +36,9 @@ def get_params():
     parser.add_argument("--emb_src", type=str, default='Bert', help='embedding source')
     parser.add_argument("--n_samples", type=int, default=20, help='few shot samples')
 
-   
+    parser.add_argument("--coarse_num", type=int, default=6, help='few shot samples')
     parser.add_argument("--lr", type=float, default=1e-4, help="learning rate")
-    parser.add_argument("--gamma", type=float, default=0.1, help="parameter loss")
+    parser.add_argument("--gamma", type=float, default=2, help="parameter loss")
 
     parser.add_argument("--dropout", type=float, default=0.3, help="dropout rate")
  
