@@ -14,6 +14,7 @@ from prettytable import PrettyTable
 import csv
 
 
+
 class Main:
     def __init__(self, params, logger):
         self.params = params
