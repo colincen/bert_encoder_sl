@@ -30,7 +30,7 @@ class Main:
             = get_dataloader(params.tgt_domain, params.batch_size, params.n_samples)
 
         
-        embeddings = load_embedding(vocab, 300, '/home/sh/data/glove.6B.300d.txt')
+        embeddings = load_embedding(vocab, 300, '/home/shenhao/data/glove.6B.300d.txt')
 
         dev_test_idx2tag = {v:k for k,v in dev_test_tag2idx.items()}
         self.dev_test_idx2tag = dev_test_idx2tag

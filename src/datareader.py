@@ -297,7 +297,7 @@ def get_dataloader(tgt_domain, batch_size, n_samples):
 
     train_tag2idx = {'O':0}
     dev_test_tag2idx = {'O':0}
-    raw_data = read_file2('/home/sh/data/coachdata/snips')
+    raw_data = read_file2('/home/shenhao/data/coachdata/snips')
     train_data = []
     dev_data = []
     test_data = []
@@ -326,7 +326,7 @@ def get_dataloader(tgt_domain, batch_size, n_samples):
     test_mask = get_mask_matrix(dev_test_tag2idx, istest=True)
 
     all_data, vocab = datareader(tgt_domain = tgt_domain, train_tag2idx=train_tag2idx, \
-        dev_test_tag2idx=dev_test_tag2idx, prefix_path='/home/sh/data/coachdata/')
+        dev_test_tag2idx=dev_test_tag2idx, prefix_path='/home/shenhao/data/coachdata/')
 
     train_data = {"utter": [], "y0":[], "y1": [], "domains": []}
     for dm_name, dm_data in all_data.items():

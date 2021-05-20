@@ -4,11 +4,13 @@ import pickle
 import logging
 import time
 import random
+import torchtext
 from datetime import timedelta
 
 import numpy as np
 from tqdm import tqdm
 import pickle
+char_ngram_model = torchtext.vocab.CharNGram(cache = '/home/shenhao/data')
 
 def load_embedding(vocab, emb_dim, emb_file, oov_emb_file=""):
     # logger = logging.getLogger()
@@ -29,7 +31,7 @@ def load_embedding(vocab, emb_dim, emb_file, oov_emb_file=""):
                 continue
             if sp[0] in vocab.word2index and sp[0] not in embedded_words:
                 pre_trained += 1
-                embedding[vocab.word2index[sp[0]]] = [float(x) for x in sp[1:]]
+                embedding[vocab.word2index[sp[0]]] = [float(x) for x in sp[1:]] 
                 embedded_words.append(sp[0])
         
         if oov_emb_file == "":
@@ -43,7 +45,7 @@ def load_embedding(vocab, emb_dim, emb_file, oov_emb_file=""):
                 sp = line.split()
                 if sp[0] in vocab.word2index and sp[0] not in embedded_words:
                     pre_trained += 1
-                    embedding[vocab.word2index[sp[0]]] = [float(x) for x in sp[1:]]
+                    embedding[vocab.word2index[sp[0]]] = [float(x) for x in sp[1:]] 
                     embedded_words.append(sp[0])
             
             print("Pre-train: %d / %d (%.2f)" % (pre_trained, vocab.n_words, pre_trained / vocab.n_words))

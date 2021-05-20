@@ -176,9 +176,9 @@ class SlotFilling(nn.Module):
 
 
 
-        self.train_labelembedding = labelembedding.GloveEmbAve('/home/sh/data', train_tag2idx).to(device)
+        self.train_labelembedding = labelembedding.GloveEmbAve('/home/shenhao/data', train_tag2idx).to(device)
     
-        self.dev_test_labelembedding = labelembedding.GloveEmbAve('/home/sh/data', dev_test_tag2idx).to(device)
+        self.dev_test_labelembedding = labelembedding.GloveEmbAve('/home/shenhao/data', dev_test_tag2idx).to(device)
     
         self.crf_labemb = CRF_labelembedding(train_labelEmbedding=self.train_labelembedding, \
                                                 dev_test_labelEmbedding=self.dev_test_labelembedding, \
@@ -224,7 +224,7 @@ class SlotFilling(nn.Module):
 
         x = self.embedding(x)
 
-        packed = rnn_utils.pack_padded_sequence(x, seq_len, batch_first=True, enforce_sorted=False)
+        packed = rnn_utils.pack_padded_sequence(x, seq_len.detach().cpu(), batch_first=True, enforce_sorted=False)
         x, _ = self.lstm(packed)
         x, _ = rnn_utils.pad_packed_sequence(x, batch_first=True)
 
@@ -264,19 +264,6 @@ class SlotFilling(nn.Module):
 
         else:
             coarse_loss = torch.tensor(0, device=self.device)
-            
-        
-
-
-                    
-
-
-
-
-
-
-
-
         
         return coarse_logits, logits,  coarse_loss, emb_loss
 
