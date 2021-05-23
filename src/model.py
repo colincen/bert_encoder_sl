@@ -170,7 +170,7 @@ class SlotFilling(nn.Module):
 
         self.device = device
         self.params = params
-        self.crf = CRF(num_tags=15, batch_first=True)
+        self.crf = CRF(num_tags=16, batch_first=True)
         labelembedding = LabelEmbeddingFactory()
 
 
@@ -193,17 +193,17 @@ class SlotFilling(nn.Module):
 
 
 
-        self.sim_func = Similarity(size=(1000 + 15, 300 + 3 ), type='mul')
+        self.sim_func = Similarity(size=(1000 + 16, 300 + 3 ), type='mul')
         
         
         self.droupout = nn.Dropout(params.dropout)
         torch.nn.init.uniform_(self.Proj_W, -0.1, 0.1)
 
 
-        self.coarse_emb = nn.Linear(1000, 300)
-        self.fc_for_coarse = nn.Linear(300, 15)
+        # self.coarse_emb = nn.Linear(1000, 300)
+        self.fc_for_coarse = nn.Linear(1000, 16)
 
-        self.fine_emb = nn.Linear(1000, 700)
+        # self.fine_emb = nn.Linear(1000, 700)
 
 
         # self.fc_for_concat_emb = nn.Linear(768 * 2, 768)
@@ -240,15 +240,15 @@ class SlotFilling(nn.Module):
             labelembedding = self.dev_test_labelembedding
 
         reps = x
-        coarse_reps = self.coarse_emb(reps)
-        coarse_logits = self.fc_for_coarse(coarse_reps)
+        # coarse_reps = self.coarse_emb(reps)
+        coarse_logits = self.fc_for_coarse(reps)
 
         
 
         emb_loss = torch.tensor(0, device=self.device)
 
-        reps = self.fine_emb(reps)
-        reps = torch.cat((coarse_reps, reps, coarse_logits), -1)
+        # reps = self.fine_emb(reps)
+        reps = torch.cat((reps, coarse_logits), -1)
         logits = self.sim_func(reps, labelembedding)
 
         add_score = coarse_logits.matmul(logits_mask.transpose(0, 1))
