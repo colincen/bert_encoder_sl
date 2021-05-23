@@ -17,18 +17,18 @@ def get_params():
     parser = argparse.ArgumentParser(description="Cross-domain SLU")
     parser.add_argument("--exp_name", type=str, default="default", help="Experiment name")
     parser.add_argument("--logger_filename", type=str, default="cross-domain-slu.log")
-    parser.add_argument("--dump_path", type=str, default="/data/sh/experiments", help="Experiment saved root path")
+    parser.add_argument("--dump_path", type=str, default="/data/shenhao/experiments", help="Experiment saved root path")
     parser.add_argument("--exp_id", type=str, default="1", help="Experiment id")
-    parser.add_argument("--log_file", type=str, default="/home/sh/data/experiments/bert_double_crf")
+    parser.add_argument("--log_file", type=str, default="/home/shenhao/data/experiments/bert_double_crf")
 
     # adaptation parameters
     parser.add_argument("--epoch", type=int, default=20, help="number of maximum epoch")
     parser.add_argument("--tgt_domain", type=str, default="", help="target_domain")
-    parser.add_argument("--bert_path", type=str, default="/data/sh/bert-base-uncased", help="embeddings file")  
+    parser.add_argument("--bert_path", type=str, default="/data/shenhao/bert-base-uncased", help="embeddings file")  
     # slu_word_char_embs_with_slotembs.npy
-    parser.add_argument("--file_path", type=str, default="/home/sh/data/coachdata/multiwoz", help="embedding dimension") #400
-    parser.add_argument("--corps_path", type=str, default="/home/sh/data/corps.txt", help="corps file") 
-    parser.add_argument("--emb_file", type=str, default="/home/sh/data", help="emb file") 
+    parser.add_argument("--file_path", type=str, default="/home/shenhao/data/coachdata/multiwoz", help="embedding dimension") #400
+    parser.add_argument("--corps_path", type=str, default="/home/shenhao/data/corps.txt", help="corps file") 
+    parser.add_argument("--emb_file", type=str, default="/home/shenhao/data", help="emb file") 
     parser.add_argument("--proj", type=str, default="no", help="emb file")
 
     parser.add_argument("--emb_dim", type=int, default=768, help="embedding dimension") #400
@@ -44,7 +44,7 @@ def get_params():
  
     parser.add_argument("--domain", type=str, default="atp", help="dictionary type: slot embeddings based on each domain")
     parser.add_argument("--device", type=str, default="cuda:0")
-    parser.add_argument("--model_saved_path", type=str, default="/home/sh/bert_encoder_sl")
+    parser.add_argument("--model_saved_path", type=str, default="/home/shenhao/bert_encoder_sl")
 
   
     parser.add_argument("--model_type", type=str, default="", help="Saved model type (e.g., coach, ct, rzt)")

@@ -1,5 +1,5 @@
 # tgt_domains=(SearchScreeningEvent RateBook AddToPlaylist BookRestaurant GetWeather PlayMusic SearchCreativeWork)
-tgt_domains=(taxi hotel train attraction restaurant)
+tgt_domains=(attraction)
 # gamma_list=(0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9)
 
 for tag_dm in ${tgt_domains[@]}
@@ -10,7 +10,7 @@ do
     --exp_id ${tag_dm} \
     --tgt_domain ${tag_dm} \
     --model_type train \
-    --device cuda:1 \
+    --device cuda:0 \
     --dump_path /home/shenhao/data/experiments \
     --bert_path /home/shenhao/bert-base-uncased \
     --file_path /home/shenhao/data/coachdata/multiwoz \
