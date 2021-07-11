@@ -53,30 +53,25 @@ domain2slot = {
 coarse = ['pad', 'O', 'person', 'location', 'special_name', 'common_name', 'number', 'direction', 'others']
 bins_labels = ['pad', 'O', 'B-person','I-person' , 'B-location', 'I-location', 'B-special_name', 'I-special_name', 'B-common_name','I-common_name', 'B-number','I-number', 'B-direction','I-direction', 'B-others','I-others']
 
+# father_son_slot={
+#     'pad':['<PAD>'],
+#     'O':['O'],
+#     'person':[],
+#     'location':['name','depart','dest'],
+#     'special_name':['food'],
+#     'common_name':['type','price'],
+#     'number':['stay','stars','leave','arrive','time','day','people'],
+#     'direction':['area'],
+#     'others':[]
+# }
 father_son_slot={
     'pad':['<PAD>'],
     'O':['O'],
-    'person':[],
-    'location':['name','depart','dest'],
-    'special_name':['food'],
-    'common_name':['type','price'],
-    'number':['stay','stars','leave','arrive','time','day','people'],
-    'direction':['area'],
-    'others':[]
+    'A': ['dest', 'depart', 'day', 'price', 'type', 'area', 'name', 'food'],
+     'B': ['arrive', 'leave', 'time'],
+      'C': ['people', 'stay', 'stars']
 }
 
-# # bert reps cluster 5
-# father_son_slot = {
-# 'pad':['<PAD>'],
-# 'O':['O'],    
-# 'A': ['entity_name', 'playlist', 'artist', 'city', 'party_size_description', 'served_dish', 'poi', 'restaurant_name', 'album', 'track', 'object_name', 'movie_name'], 
-# 'B': ['playlist_owner', 'music_item', 'party_size_number', 'state', 'spatial_relation', 'current_location', 'condition_temperature', 'year', 'genre', 'object_select', 'rating_value', 'object_part_of_series_type'], 
-# 'C': ['restaurant_type', 'sort', 'cuisine', 'facility', 'condition_description', 'service', 'object_type', 'movie_type', 'location_name'], 
-# 'D': ['timeRange', 'country', 'geographic_poi'], 
-# 'E': ['best_rating', 'rating_unit', 'object_location_type']
-# }
-# coarse = ['pad', 'O', 'A', 'B', 'C', 'D', 'E']
-# bins_labels = ['pad', 'O', 'B-A','I-A' , 'B-B', 'I-B', 'B-C', 'I-C', 'B-D','I-D', 'B-E','I-E']
 
 
 class NerDataset(Dataset):
