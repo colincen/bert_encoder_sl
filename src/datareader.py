@@ -64,16 +64,25 @@ bins_labels = ['pad', 'O', 'B-person','I-person' , 'B-location', 'I-location', '
 #     'direction':['area'],
 #     'others':[]
 # }
+# father_son_slot={
+#     'pad':['<PAD>'],
+#     'O':['O'],
+#     'A': ['dest', 'depart', 'day', 'price', 'type', 'area', 'name', 'food'],
+#      'B': ['arrive', 'leave', 'time'],
+#       'C': ['people', 'stay', 'stars']
+# }
+# coarse = ['pad', 'O', 'A', 'B', 'C']
+# bins_labels = ['pad', 'O', 'B-A', 'I-A', 'B-B','I-B','B-C','I-C']
 father_son_slot={
     'pad':['<PAD>'],
     'O':['O'],
-    'A': ['dest', 'depart', 'day', 'price', 'type', 'area', 'name', 'food'],
-     'B': ['arrive', 'leave', 'time'],
-      'C': ['people', 'stay', 'stars']
-}
-
-
-
+    'A': ['dest', 'name'], 
+    'B': ['arrive', 'leave', 'time'], 
+    'C': ['depart'], 
+    'D': ['day', 'price', 'type', 'area', 'food'], 
+    'E': ['people', 'stay', 'stars']}
+coarse = ['pad', 'O', 'A', 'B', 'C', 'D', 'E']
+bins_labels = ['pad', 'O', 'B-A', 'I-A', 'B-B','I-B','B-C','I-C','B-D','I-D','B-E','I-E']
 class NerDataset(Dataset):
     def __init__(self, raw_data, tag2idx ,bert_path):
         self.tokenizer = BertTokenizer.from_pretrained(bert_path)
