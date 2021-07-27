@@ -3,6 +3,7 @@ tgt_domains=(SearchScreeningEvent RateBook AddToPlaylist BookRestaurant GetWeath
 # tgt_domains=(AddToPlaylist BookRestaurant GetWeather)
 # gamma_list=(0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9)
 
+
 for tag_dm in ${tgt_domains[@]}
 do
 
@@ -10,7 +11,7 @@ do
     --exp_name zero_shot_logits  \
     --exp_id ${tag_dm} \
     --tgt_domain ${tag_dm} \
-    --model_type test \
+    --model_type train \
     --device cuda:0 \
     --dump_path /home/sh/data/experiments \
     --bert_path /home/sh/bert-base-uncased \
@@ -21,8 +22,8 @@ do
     --model_saved_path /home/sh/data/experiments/zero_shot_logits/${tag_dm} \
     --emb_src Bert \
     --n_samples 0 \
-    --coarse_num 7 \
-    --gamma  2 \
+    --coarse_num 5 \
+    --gamma 2 \
     --proj no
 done
 

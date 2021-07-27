@@ -361,5 +361,5 @@ class ProjMartrix(nn.Module):
 
             x = [' '.join(j) for j in x]
 
-            yield x,y
+            yield x, y
  

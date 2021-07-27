@@ -1,4 +1,4 @@
-tgt_domains=(SearchScreeningEvent)
+tgt_domains=(BookRestaurant SearchScreeningEvent PlayMusic RateBook)
 for tag_dm in ${tgt_domains[@]}
 do
 
@@ -18,6 +18,6 @@ do
     --emb_src Bert \
     --n_samples 0 \
     --coarse_num 5 \
-    --gamma 3 \
+    --gamma  2 \
     --proj no
 done

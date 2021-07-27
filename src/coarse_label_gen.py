@@ -1,5 +1,3 @@
-import spacy
-nlp = spacy.load('en_core_web_sm')
 snips_data = {
     "music_item": ["song", "track"],
     "playlist_owner": ["my", "donna s"],

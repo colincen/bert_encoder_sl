@@ -105,7 +105,44 @@ domain2slot = {
 coar = coarse_fine('snips', 'bert_7_4')
 coarse, bins_labels, father_son_slot = coar.coarse, coar.bins_labels, coar.father2son
 
+coarse = ['pad', 'O', 'A', 'B', 'C', 'D', 'E']
+bins_labels = ['pad', 'O', 'B-A','I-A' , 'B-B', 'I-B', 'B-C', 'I-C',
+ 'B-D','I-D', 'B-E','I-E']
 
+# 1
+# father_son_slot = {
+#                     'pad':['<PAD>'],
+#                 'O':['O'],
+#     'A': ['entity_name', 'party_size_description', 'restaurant_name', 'geographic_poi', 
+# 'object_name'],
+#  'C': ['playlist', 'artist', 'timeRange', 'city', 'served_dish', 'poi', 
+# 'album', 'service', 'track', 'movie_name', 'object_location_type', 'location_name'], 
+# 'D': ['playlist_owner', 'music_item', 'state', 'restaurant_type', 'sort', 'spatial_relation', 
+# 'cuisine', 'facility', 'current_location', 'condition_temperature', 'condition_description', 
+# 'year', 'genre', 'object_select', 'object_type', 'object_part_of_series_type', 
+# 'rating_unit'],
+#  'B': ['party_size_number', 'rating_value', 'best_rating'], 
+#  'E': ['country', 'movie_type']}
+
+# 2
+# father_son_slot={
+# 'pad':['<PAD>'],
+# 'O':['O'],
+# 'D': ['entity_name', 'party_size_description', 'restaurant_name', 'geographic_poi', 'album', 'track', 'object_name', 'movie_name'],
+#  'A': ['playlist', 'artist', 'timeRange', 'city', 'served_dish', 'poi', 'service', 'genre', 'object_location_type', 'location_name'], 
+#  'E': ['playlist_owner', 'music_item', 'state', 'restaurant_type', 'sort', 'spatial_relation', 'cuisine', 'facility', 'current_location', 'condition_temperature', 'condition_description', 'year', 'object_select', 'object_type', 'object_part_of_series_type'], 
+#  'B': ['party_size_number', 'rating_value', 'best_rating'], 
+#  'C': ['country', 'rating_unit', 'movie_type']} 
+
+# 3
+father_son_slot ={
+    'pad':['<PAD>'],
+    'O':['O'],
+    'C': ['entity_name', 'playlist', 'timeRange', 'party_size_description', 'poi', 'restaurant_name', 'geographic_poi', 'album', 'track', 'object_name', 'movie_name'],
+     'B': ['artist', 'restaurant_type', 'city', 'served_dish', 'cuisine', 'service', 'genre', 'location_name'], 
+     'D': ['playlist_owner', 'state', 'sort', 'spatial_relation', 'country', 'facility', 'current_location', 'condition_temperature', 'condition_description', 'year', 'object_select'], 
+     'E': ['music_item', 'object_type', 'object_part_of_series_type', 'movie_type', 'object_location_type'], 
+     'A': ['party_size_number', 'rating_value', 'best_rating', 'rating_unit']}
 
 class NerDataset(Dataset):
     def __init__(self, raw_data, tag2idx ,bert_path):
@@ -273,8 +310,8 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path, n_samples=0):
                 fine2coarse[t] = k
     
 
-    train_mask = get_mask_matrix(train_tag2idx, istest=False)
-    test_mask = get_mask_matrix(dev_test_tag2idx, istest=True)
+    train_mask = get_mask_matrix(train_tag2idx,  tgt_domain,istest=False)
+    test_mask = get_mask_matrix(dev_test_tag2idx,  tgt_domain, istest=True)
 
     
     dev_data = test_data[n_samples:500]
@@ -291,7 +328,21 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path, n_samples=0):
     return dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx, train_mask,  test_mask
 
 
-def get_mask_matrix(son_dict, istest):
+def get_mask_matrix(son_dict, tgt_domain, istest):
+
+    que = {}
+    que['SearchScreeningEvent'] = ['B-object_type', 'I-object_type', 
+                'B-movie_type','I-movie_type', 
+                'B-movie_name','I-movie_name', 
+                'B-location_name','I-location_name',
+                'B-object_location_type','I-object_location_type']
+    que['RateBook'] = ['B-object_part_of_series_type','I-object_part_of_series_type',
+                'B-object_select','I-object_select']
+
+    que['PlayMusic'] = ['B-playlist','I-playlist']
+    que['BookRestaurant'] = ['B-party_size_description','I-party_size_description',
+                            'B-poi','I-poi']
+
 
     fine2coarse = {}
 
@@ -304,23 +355,47 @@ def get_mask_matrix(son_dict, istest):
     mask_list = np.zeros((len(son_dict), vec_len))
     for i in range(len(id2tag)):
         tag = id2tag[i]
-        if tag not in ['<PAD>', 'O']:
-                
-
-
-            
+        if tag not in ['<PAD>', 'O']:            
             newtag = tag[:2] + fine2coarse[tag[2:]]
             idx = bins_labels.index(newtag)
             mask_list[i][idx] = 1
-            # if istest:
-            #     if tag not in ['B-object_type', 'I-object_type']:
-            #         mask_list[i][idx] = 1
-            #     elif tag in ['B-object_type', 'I-object_type']:
-            #         mask_list[i] += 0.05
-            #         idxt = bins_labels.index('B-common_name')
-            #         mask_list[i][idxt] = 0
-            #         idxt = bins_labels.index('I-common_name')
-            #         mask_list[i][idxt] = 0
+            if istest:
+                
+                #sse 3 6 8 10
+                # if tag not in ['B-object_type', 'I-object_type', 
+                # 'B-movie_type','I-movie_type', 
+                # 'B-movie_name','I-movie_name', 
+                # 'B-location_name','I-location_name',
+                # 'B-object_location_type','I-object_location_type']:
+
+                # #rb gamma 8
+                # if tag not in ['B-object_part_of_series_type','I-object_part_of_series_type',
+                # 'B-object_select','I-object_select']:
+                #     mask_list[i][idx] = 1
+                # else:
+                #     mask_list[i][idx] = 0
+
+                # #pm gamma 6
+                # if tag not in ['B-playlist','I-playlist']:
+                #     mask_list[i][idx] = 1
+                # else:
+                #     mask_list[i][idx] = 0
+
+                #br gamma 6
+                if tgt_domain in que.keys():
+                    if tag not in que[tgt_domain]:
+                        mask_list[i][idx] = 1
+                    else:
+                        mask_list[i][idx] = 0
+                else:
+                    mask_list[i][idx] = 1
+
+                # elif tag in ['B-object_type', 'I-object_type']:
+                #     mask_list[i] += 0.05
+                #     idxt = bins_labels.index('B-common_name')
+                #     mask_list[i][idxt] = 0
+                #     idxt = bins_labels.index('I-common_name')
+                #     mask_list[i][idxt] = 0
 
 
             

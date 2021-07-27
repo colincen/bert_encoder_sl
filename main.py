@@ -18,6 +18,18 @@ import csv
 class Main:
     def __init__(self, params, logger):
         self.params = params
+
+        if self.params.tgt_domain == 'SearchScreeningEvent':
+            self.params.gamma = 6
+        elif self.params.tgt_domain == 'RateBook':
+            self.params.gamma = 8
+        elif self.params.tgt_domain == 'BookRestaurant':
+            self.params.gamma = 6
+        elif self.params.tgt_domain == 'PlayMusic':
+            self.params.gamma = 6
+        else: self.params.gamma = 2
+
+
         self.logger = logger
         self.loss_func = nn.CrossEntropyLoss()
         self.mse_loss_func = nn.MSELoss()
