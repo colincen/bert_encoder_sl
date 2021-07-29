@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
 from src.coarse_label_gen import coarse_fine
-slot_list = ['<PAD>','playlist', 'music_item', 'geographic_poi', 'facility', 
+slot_list = ['<PAD>', 'playlist', 'music_item', 'geographic_poi', 'facility', 
 'movie_name', 'location_name', 'restaurant_name', 'track', 'restaurant_type', 
 'object_part_of_series_type', 'country', 'service', 'poi', 'party_size_description',
 'served_dish', 'genre', 'current_location', 'object_select', 'album', 'object_name',
@@ -105,44 +105,20 @@ domain2slot = {
 coar = coarse_fine('snips', 'bert_7_4')
 coarse, bins_labels, father_son_slot = coar.coarse, coar.bins_labels, coar.father2son
 
-coarse = ['pad', 'O', 'A', 'B', 'C', 'D', 'E']
+coarse = ['pad', 'O', 'A', 'B', 'C', 'D', 'E','F','G']
 bins_labels = ['pad', 'O', 'B-A','I-A' , 'B-B', 'I-B', 'B-C', 'I-C',
- 'B-D','I-D', 'B-E','I-E']
+ 'B-D','I-D', 'B-E','I-E','B-F','I-F','B-G','I-G']
 
-# 1
-# father_son_slot = {
-#                     'pad':['<PAD>'],
-#                 'O':['O'],
-#     'A': ['entity_name', 'party_size_description', 'restaurant_name', 'geographic_poi', 
-# 'object_name'],
-#  'C': ['playlist', 'artist', 'timeRange', 'city', 'served_dish', 'poi', 
-# 'album', 'service', 'track', 'movie_name', 'object_location_type', 'location_name'], 
-# 'D': ['playlist_owner', 'music_item', 'state', 'restaurant_type', 'sort', 'spatial_relation', 
-# 'cuisine', 'facility', 'current_location', 'condition_temperature', 'condition_description', 
-# 'year', 'genre', 'object_select', 'object_type', 'object_part_of_series_type', 
-# 'rating_unit'],
-#  'B': ['party_size_number', 'rating_value', 'best_rating'], 
-#  'E': ['country', 'movie_type']}
+father_son_slot = {
+'pad':['<PAD>'],
+'O':['O'],
+'F': ['entity_name', 'playlist', 'artist', 'timeRange', 'party_size_description', 'album', 'track', 'object_name', 'movie_name'], 
+'A': ['playlist_owner', 'music_item', 'party_size_number', 'state', 'sort', 'spatial_relation', 'current_location', 'condition_temperature', 'condition_description', 'year', 'object_select', 'rating_value', 'object_part_of_series_type'],
+ 'B': ['restaurant_type', 'city', 'served_dish', 'poi', 'restaurant_name', 'cuisine', 'service', 'genre', 'object_location_type', 'location_name'], 
+ 'G': ['country', 'facility', 'object_type', 'rating_unit', 'movie_type'], 
+ 'C': ['geographic_poi'], 
+ 'D': ['best_rating']}
 
-# 2
-# father_son_slot={
-# 'pad':['<PAD>'],
-# 'O':['O'],
-# 'D': ['entity_name', 'party_size_description', 'restaurant_name', 'geographic_poi', 'album', 'track', 'object_name', 'movie_name'],
-#  'A': ['playlist', 'artist', 'timeRange', 'city', 'served_dish', 'poi', 'service', 'genre', 'object_location_type', 'location_name'], 
-#  'E': ['playlist_owner', 'music_item', 'state', 'restaurant_type', 'sort', 'spatial_relation', 'cuisine', 'facility', 'current_location', 'condition_temperature', 'condition_description', 'year', 'object_select', 'object_type', 'object_part_of_series_type'], 
-#  'B': ['party_size_number', 'rating_value', 'best_rating'], 
-#  'C': ['country', 'rating_unit', 'movie_type']} 
-
-# 3
-father_son_slot ={
-    'pad':['<PAD>'],
-    'O':['O'],
-    'C': ['entity_name', 'playlist', 'timeRange', 'party_size_description', 'poi', 'restaurant_name', 'geographic_poi', 'album', 'track', 'object_name', 'movie_name'],
-     'B': ['artist', 'restaurant_type', 'city', 'served_dish', 'cuisine', 'service', 'genre', 'location_name'], 
-     'D': ['playlist_owner', 'state', 'sort', 'spatial_relation', 'country', 'facility', 'current_location', 'condition_temperature', 'condition_description', 'year', 'object_select'], 
-     'E': ['music_item', 'object_type', 'object_part_of_series_type', 'movie_type', 'object_location_type'], 
-     'A': ['party_size_number', 'rating_value', 'best_rating', 'rating_unit']}
 
 class NerDataset(Dataset):
     def __init__(self, raw_data, tag2idx ,bert_path):

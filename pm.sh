@@ -17,7 +17,7 @@ do
     --model_saved_path /home/shenhao/data/experiments/zero_shot_logits/${tag_dm} \
     --emb_src Bert \
     --n_samples 0 \
-    --coarse_num 5 \
+    --coarse_num 7 \
     --gamma 6 \
     --proj no
 done
