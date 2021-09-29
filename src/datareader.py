@@ -1,9 +1,10 @@
 from transformers import BertTokenizer
 import torch
-
+import json
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
 from src.coarse_label_gen import coarse_fine
+from src.random_select_coarse import get_random, get_cluster
 slot_list = ['<PAD>', 'playlist', 'music_item', 'geographic_poi', 'facility', 
 'movie_name', 'location_name', 'restaurant_name', 'track', 'restaurant_type', 
 'object_part_of_series_type', 'country', 'service', 'poi', 'party_size_description',
@@ -105,19 +106,53 @@ domain2slot = {
 coar = coarse_fine('snips', 'bert_7_4')
 coarse, bins_labels, father_son_slot = coar.coarse, coar.bins_labels, coar.father2son
 
-coarse = ['pad', 'O', 'A', 'B', 'C', 'D', 'E','F','G']
-bins_labels = ['pad', 'O', 'B-A','I-A' , 'B-B', 'I-B', 'B-C', 'I-C',
- 'B-D','I-D', 'B-E','I-E','B-F','I-F','B-G','I-G']
+coarse = ['pad', 'O', 'A', 'B', 'C', 'D','E','F']
+bins_labels = ['pad', 'O', 'B-A','I-A' , 'B-B', 'I-B', 'B-C', 'I-C', 'B-D','I-D','B-E','I-E','B-F','I-F']
 
-father_son_slot = {
-'pad':['<PAD>'],
-'O':['O'],
-'F': ['entity_name', 'playlist', 'artist', 'timeRange', 'party_size_description', 'album', 'track', 'object_name', 'movie_name'], 
-'A': ['playlist_owner', 'music_item', 'party_size_number', 'state', 'sort', 'spatial_relation', 'current_location', 'condition_temperature', 'condition_description', 'year', 'object_select', 'rating_value', 'object_part_of_series_type'],
- 'B': ['restaurant_type', 'city', 'served_dish', 'poi', 'restaurant_name', 'cuisine', 'service', 'genre', 'object_location_type', 'location_name'], 
- 'G': ['country', 'facility', 'object_type', 'rating_unit', 'movie_type'], 
- 'C': ['geographic_poi'], 
- 'D': ['best_rating']}
+father_son_slot = {'pad': ['<PAD>'],
+ 'O': ['O'],
+'D': ['entity_name', 'playlist', 'artist', 'city', 'party_size_description', 'served_dish', 'poi', 'restaurant_name', 'album', 'track', 'object_name', 'movie_name', 'location_name'], 
+'B': ['playlist_owner', 'music_item', 'state', 'sort', 'spatial_relation', 'cuisine', 'current_location', 'condition_temperature', 'condition_description', 'service', 'year', 'genre', 'object_select', 'object_part_of_series_type'], 
+'E': ['party_size_number', 'rating_value', 'best_rating'], 
+'F': ['restaurant_type', 'country', 'facility', 'object_type', 'movie_type', 'object_location_type'], 
+'A': ['timeRange', 'geographic_poi'],
+ 'C': ['rating_unit']
+}
+
+
+def get_fathter_son_slot(israndom, not_change):
+    global father_son_slot
+    # if israndom:
+    #     father_son_slot =  get_random()
+        
+    # elif not israndom:
+    #     father_son_slot = get_cluster()
+    
+    return father_son_slot
+
+    # file_name = ""
+    # if israndom:
+    #     file_name = 'temp_dict' + '_rand.json'
+    # else:
+    #     file_name = 'temp_dict' + '_cluster.json'
+    # if not_change:
+    #     with open(file_name, 'r') as file:
+    #         father_son_slot = json.load(file)
+    #         file.close()
+
+    #     return father_son_slot
+
+
+    # if israndom:
+    #     father_son_slot =  get_random()
+        
+    # elif not israndom:
+    #     father_son_slot = get_cluster()
+
+    # with open(file_name, 'w') as file:
+    #     json.dump(father_son_slot, file)
+    #     file.close()
+    # return father_son_slot
 
 
 class NerDataset(Dataset):
@@ -236,7 +271,15 @@ def pad(batch):
     return words, f(x), is_heads, f(heads), tags, f(y), domains, seqlens, f(pad_coarse_labels), f(pad_bin_tags)
 
 
-def get_dataloader(tgt_domain, batch_size, fpath, bert_path, n_samples=0):
+def get_dataloader(tgt_domain, batch_size, fpath, bert_path, n_samples=0, is_random=True):
+
+    # global father_son_slot
+
+    # if is_random:
+    #     father_son_slot = get_random()
+    # else: 
+    #     father_son_slot = get_cluster
+
 
     raw_data = read_file(fpath)
     train_tag2idx = {"<PAD>" : 0, "O":1}
@@ -306,6 +349,8 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path, n_samples=0):
 
 def get_mask_matrix(son_dict, tgt_domain, istest):
 
+    
+
     que = {}
     que['SearchScreeningEvent'] = ['B-object_type', 'I-object_type', 
                 'B-movie_type','I-movie_type', 
@@ -315,7 +360,7 @@ def get_mask_matrix(son_dict, tgt_domain, istest):
     que['RateBook'] = ['B-object_part_of_series_type','I-object_part_of_series_type',
                 'B-object_select','I-object_select']
 
-    que['PlayMusic'] = ['B-playlist','I-playlist']
+    que['PlayMusic'] = ['B-track', 'I-track','B-album', 'I-album']
     que['BookRestaurant'] = ['B-party_size_description','I-party_size_description',
                             'B-poi','I-poi']
 

@@ -5,7 +5,7 @@ import numpy as np
 import torchtext
 import random
 from collections import Counter
-from .datareader import slot2desp, father_son_slot, coarse
+from .datareader import slot2desp, get_fathter_son_slot, coarse
 import torch.nn.functional as F
 from .crf import CRF
 from .crf_labelembedding import CRF as CRF_labelembedding
@@ -13,6 +13,8 @@ from .crf_labelembedding import CRF as CRF_labelembedding
 class LabelEmbeddingFactory:
     def __init__(self):
         self.fine2coarse = {}
+        father_son_slot = get_fathter_son_slot(israndom= True, not_change=True)
+        print(father_son_slot)
         for k,v in father_son_slot.items():
             for t in v:
                 self.fine2coarse[t] = k

@@ -2,7 +2,7 @@ import src.model as Model
 from src.model import ProjMartrix
 import torch
 import torch.nn as nn
-from src.datareader import get_dataloader, coarse, bins_labels,father_son_slot
+from src.datareader import get_dataloader, coarse, bins_labels,get_fathter_son_slot
 from src.conlleval import evaluate
 from config import get_params, init_experiment
 from tqdm import tqdm
@@ -22,12 +22,23 @@ class Main:
         if self.params.tgt_domain == 'SearchScreeningEvent':
             self.params.gamma = 6
         elif self.params.tgt_domain == 'RateBook':
-            self.params.gamma = 8
+            self.params.gamma = 7
         elif self.params.tgt_domain == 'BookRestaurant':
             self.params.gamma = 6
         elif self.params.tgt_domain == 'PlayMusic':
             self.params.gamma = 6
-        else: self.params.gamma = 2
+        else: self.params.gamma = 0.5
+
+        if params.random_select_slot == 1:
+            fg = True
+            # if self.params.tgt_domain == 'AddToPlaylist':
+            #     fg = False
+            self.father_son_slot = get_fathter_son_slot(israndom=True, not_change=fg)
+        else:
+            fg = True
+            # if self.params.tgt_domain == 'AddToPlaylist':
+            #     fg = False
+            self.father_son_slot = get_fathter_son_slot(israndom=False, not_change=fg)
 
 
         self.logger = logger
@@ -122,7 +133,7 @@ class Main:
 
                 # loss_coarse = self.loss_func(coarse_logits.view(bsz*max_len, -1), bin_tag.view(-1))
 
-                if epoch < 2:
+                if epoch < 1:
                     loss = loss_coarse 
                 else:
                     loss = loss_sim  + loss_coarse
@@ -190,7 +201,7 @@ class Main:
 
     def finetag_to_coarsetag(self):
         res_dict = {'<PAD>':"pad", "O":"O"}
-        for k,v in father_son_slot.items():
+        for k,v in self.father_son_slot.items():
             # res_dict["B-" + k] = len(res_dict)
             # res_dict["I-" + k] = len(res_dict)
             for t in v:
