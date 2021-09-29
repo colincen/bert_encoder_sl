@@ -230,9 +230,16 @@ class NerDataset(Dataset):
 
 def read_file(fpath):
     raw_data = {}
+    seen_data = {}
+    unseen_data = {}
     for intent in domain_set:
         raw_data[intent] = []
-        for i, line in enumerate(open(fpath+'/'+intent+'/'+intent+'.txt')):
+        seen_data[intent] = []
+        unseen_data[intent] = []
+        filesrc1 = fpath+'/'+intent+'/'+intent+'.txt'
+        filesrc2 = fpath+'/'+intent+'/'+'seen_slots.txt'
+        filesrc3 = fpath+'/'+intent+'/'+'unseen_slots.txt'
+        for i, line in enumerate(open(filesrc1)):
             temp = []
             tokens, labels = line.strip().split('\t')
             tokens = tokens.split()
@@ -243,8 +250,33 @@ def read_file(fpath):
             temp.append(label_list)
             temp.append(intent)
             raw_data[intent].append(temp)
-    
-    return raw_data
+
+        for i, line in enumerate(open(filesrc2)):
+            temp = []
+            tokens, labels = line.strip().split('\t')
+            tokens = tokens.split()
+            label_list = labels.split()
+            if '������' in tokens:
+                continue
+            temp.append(tokens)
+            temp.append(label_list)
+            temp.append(intent)
+            seen_data[intent].append(temp)
+
+
+        for i, line in enumerate(open(filesrc3)):
+            temp = []
+            tokens, labels = line.strip().split('\t')
+            tokens = tokens.split()
+            label_list = labels.split()
+            if '������' in tokens:
+                continue
+            temp.append(tokens)
+            temp.append(label_list)
+            temp.append(intent)
+            unseen_data[intent].append(temp)   
+                    
+    return raw_data, seen_data, unseen_data
 
 
 def pad(batch):
@@ -281,16 +313,20 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path, n_samples=0, is_ran
     #     father_son_slot = get_cluster
 
 
-    raw_data = read_file(fpath)
+    raw_data, seen_data, unseen_data = read_file(fpath)
     train_tag2idx = {"<PAD>" : 0, "O":1}
     dev_test_tag2idx = {"<PAD>" : 0, "O":1}
     train_data = []
     dev_data = []
+    test_on_seen = []
+    test_on_unseen = []
     test_data = []
 
     for k, v in domain2slot.items():
         if k == tgt_domain:
             test_data.extend(raw_data[k][n_samples:])
+            test_on_seen.extend(seen_data[k])
+            test_on_unseen.extend(unseen_data[k])
             for slot in v:
                 _B = "B-" + slot
                 if _B not in dev_test_tag2idx.keys() and _B in y_set:
@@ -338,13 +374,18 @@ def get_dataloader(tgt_domain, batch_size, fpath, bert_path, n_samples=0, is_ran
 
     dataset_tr = NerDataset(raw_data=train_data, tag2idx=train_tag2idx, bert_path=bert_path)
     dataset_val = NerDataset(raw_data=dev_data, tag2idx=dev_test_tag2idx, bert_path=bert_path)    
-    dataset_test = NerDataset(raw_data=test_data, tag2idx=dev_test_tag2idx, bert_path=bert_path)    
-   
+    dataset_test = NerDataset(raw_data=test_data, tag2idx=dev_test_tag2idx, bert_path=bert_path)
+    dataset_on_seen = NerDataset(raw_data=test_on_seen, tag2idx=dev_test_tag2idx, bert_path=bert_path)    
+    dataset_on_unseen = NerDataset(raw_data=test_on_unseen, tag2idx=dev_test_tag2idx, bert_path=bert_path)    
+
     dataloader_tr = DataLoader(dataset=dataset_tr, batch_size=batch_size, shuffle=True, collate_fn=pad)
     dataloader_val = DataLoader(dataset=dataset_val, batch_size=batch_size, shuffle=False, collate_fn=pad)
     dataloader_test = DataLoader(dataset=dataset_test, batch_size=batch_size, shuffle=False, collate_fn=pad)
+    dataloader_on_seen = DataLoader(dataset=dataset_on_seen, batch_size=batch_size, shuffle=False, collate_fn=pad)
+    dataloader_on_unseen = DataLoader(dataset=dataset_on_unseen, batch_size=batch_size, shuffle=False, collate_fn=pad)
 
-    return dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx, train_mask,  test_mask
+
+    return dataloader_tr, dataloader_val, dataloader_test, dataloader_on_seen,dataloader_on_unseen,train_tag2idx, dev_test_tag2idx, train_mask,  test_mask
 
 
 def get_mask_matrix(son_dict, tgt_domain, istest):

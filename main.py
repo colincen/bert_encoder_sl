@@ -48,7 +48,7 @@ class Main:
         self.opti_saved_path = None
 
     def do_pretrain(self):
-        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path, n_samples=params.n_samples)
+        dataloader_tr, dataloader_val, dataloader_test, dataloader_seen, dataloader_unseen, train_tag2idx, dev_test_tag2idx = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path, n_samples=params.n_samples)
         premodel = ProjMartrix(params, dataloader_tr)  
         premodel.to(params.device)
         premodel.train()
@@ -72,7 +72,7 @@ class Main:
         torch.save({"projection_matrix" : premodel.state_dict() },proj_saved_path)
 
     def do_train(self):
-        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx, train_mask, test_mask = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path, n_samples=params.n_samples)
+        dataloader_tr, dataloader_val, dataloader_test,dataloader_seen, dataloader_unseen, train_tag2idx, dev_test_tag2idx, train_mask, test_mask = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path, n_samples=params.n_samples)
         premodel = None
         # if (not os.path.exists(os.path.join(self.params.dump_path, "proj.pth"))) and (self.params.proj == 'yes'):
         #     self.do_pretrain()
@@ -449,11 +449,19 @@ class Main:
         self.slt = Model.SlotFilling(params, train_tag2idx, dev_test_tag2idx, bert_path=params.bert_path,device=params.device)
         self.slt.to(params.device)
         self.slt.load_state_dict(model_params)
-        dataloader_tr, dataloader_val, dataloader_test, train_tag2idx, dev_test_tag2idx, train_mask, test_mask = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path, n_samples=params.n_samples)
+        dataloader_tr, dataloader_val, dataloader_test, dataloader_seen, dataloader_unseen, train_tag2idx, dev_test_tag2idx, train_mask, test_mask = get_dataloader(params.tgt_domain, batch_size=params.batch_size, fpath=params.file_path, bert_path=params.bert_path, n_samples=params.n_samples)
         dev_test_idx2tag = {v:k for k,v in dev_test_tag2idx.items()}
         self.dev_test_idx2tag = dev_test_idx2tag
         self.train_tag2idx, self.dev_test_tag2idx = train_tag2idx, dev_test_tag2idx
+        
+        self.logger.info("============full data================")
         self.do_test(dataloader_test, test_mask, True, True)
+        self.logger.info("============seen data================")
+        if len(dataloader_seen) > 0:        
+            self.do_test(dataloader_seen, test_mask, True, True)
+        self.logger.info("============unseen data================")
+        if len(dataloader_unseen) > 0:
+            self.do_test(dataloader_unseen, test_mask, True, True)    
 
 if __name__ == "__main__":
     params = get_params()

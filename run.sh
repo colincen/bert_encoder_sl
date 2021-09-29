@@ -1,4 +1,5 @@
-tgt_domains=(AddToPlaylist BookRestaurant GetWeather PlayMusic RateBook SearchCreativeWork SearchScreeningEvent)
+tgt_domains=(SearchScreeningEvent)
+# BookRestaurant GetWeather PlayMusic RateBook SearchCreativeWork SearchScreeningEvent)
 exp_n=zero_shot_logits
 for tag_dm in ${tgt_domains[@]}
 do
