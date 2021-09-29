@@ -85,39 +85,39 @@ domain2slot = {
 
 
 
-# coarse = ['pad', 'O', 'person', 'location', 'special_name', 'common_name', 'number', 'direction', 'others']
-# bins_labels = ['pad', 'O', 'B-person','I-person' , 'B-location', 'I-location', 'B-special_name', 'I-special_name', 'B-common_name','I-common_name', 'B-number','I-number', 'B-direction','I-direction', 'B-others','I-others']
+coarse = ['pad', 'O', 'person', 'location', 'special_name', 'common_name', 'number', 'direction', 'others']
+bins_labels = ['pad', 'O', 'B-person','I-person' , 'B-location', 'I-location', 'B-special_name', 'I-special_name', 'B-common_name','I-common_name', 'B-number','I-number', 'B-direction','I-direction', 'B-others','I-others']
 
-# father_son_slot={
-#     'pad':['<PAD>'],
-#     'O':['O'],
-#     'person':['artist','party_size_description'],
-#     'location':['state','city','geographic_poi','object_location_type','location_name','country','poi'],
-#     'special_name':['album','service','entity_name','playlist','music_item','track','movie_name','object_name',
-#                     'served_dish','restaurant_name','cuisine'],
-#     'common_name':['object_type', 'object_part_of_series_type','movie_type','restaurant_type','genre','facility',
-#                 'condition_description','condition_temperature'],
-#     'number':['rating_value','best_rating','year','party_size_number','timeRange'],
-#     'direction':['spatial_relation','current_location','object_select'],
-#     'others':['rating_unit', 'sort','playlist_owner']
-# }
-
-
-coar = coarse_fine('snips', 'bert_7_4')
-coarse, bins_labels, father_son_slot = coar.coarse, coar.bins_labels, coar.father2son
-
-coarse = ['pad', 'O', 'A', 'B', 'C', 'D','E','F']
-bins_labels = ['pad', 'O', 'B-A','I-A' , 'B-B', 'I-B', 'B-C', 'I-C', 'B-D','I-D','B-E','I-E','B-F','I-F']
-
-father_son_slot = {'pad': ['<PAD>'],
- 'O': ['O'],
-'D': ['entity_name', 'playlist', 'artist', 'city', 'party_size_description', 'served_dish', 'poi', 'restaurant_name', 'album', 'track', 'object_name', 'movie_name', 'location_name'], 
-'B': ['playlist_owner', 'music_item', 'state', 'sort', 'spatial_relation', 'cuisine', 'current_location', 'condition_temperature', 'condition_description', 'service', 'year', 'genre', 'object_select', 'object_part_of_series_type'], 
-'E': ['party_size_number', 'rating_value', 'best_rating'], 
-'F': ['restaurant_type', 'country', 'facility', 'object_type', 'movie_type', 'object_location_type'], 
-'A': ['timeRange', 'geographic_poi'],
- 'C': ['rating_unit']
+father_son_slot={
+    'pad':['<PAD>'],
+    'O':['O'],
+    'person':['artist','party_size_description'],
+    'location':['state','city','geographic_poi','object_location_type','location_name','country','poi'],
+    'special_name':['album','service','entity_name','playlist','music_item','track','movie_name','object_name',
+                    'served_dish','restaurant_name','cuisine'],
+    'common_name':['object_type', 'object_part_of_series_type','movie_type','restaurant_type','genre','facility',
+                'condition_description','condition_temperature'],
+    'number':['rating_value','best_rating','year','party_size_number','timeRange'],
+    'direction':['spatial_relation','current_location','object_select'],
+    'others':['rating_unit', 'sort','playlist_owner']
 }
+
+
+# coar = coarse_fine('snips', 'bert_7_4')
+# coarse, bins_labels, father_son_slot = coar.coarse, coar.bins_labels, coar.father2son
+
+# coarse = ['pad', 'O', 'A', 'B', 'C', 'D','E','F']
+# bins_labels = ['pad', 'O', 'B-A','I-A' , 'B-B', 'I-B', 'B-C', 'I-C', 'B-D','I-D','B-E','I-E','B-F','I-F']
+
+# father_son_slot = {'pad': ['<PAD>'],
+#  'O': ['O'],
+# 'D': ['entity_name', 'playlist', 'artist', 'city', 'party_size_description', 'served_dish', 'poi', 'restaurant_name', 'album', 'track', 'object_name', 'movie_name', 'location_name'], 
+# 'B': ['playlist_owner', 'music_item', 'state', 'sort', 'spatial_relation', 'cuisine', 'current_location', 'condition_temperature', 'condition_description', 'service', 'year', 'genre', 'object_select', 'object_part_of_series_type'], 
+# 'E': ['party_size_number', 'rating_value', 'best_rating'], 
+# 'F': ['restaurant_type', 'country', 'facility', 'object_type', 'movie_type', 'object_location_type'], 
+# 'A': ['timeRange', 'geographic_poi'],
+#  'C': ['rating_unit']
+# }
 
 
 def get_fathter_son_slot(israndom, not_change):
