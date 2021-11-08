@@ -3,12 +3,12 @@ tgt_domains=(SearchScreeningEvent)
 exp_n=zero_shot_logits
 for tag_dm in ${tgt_domains[@]}
 do
-
+``
     python main.py \
     --exp_name ${exp_n}  \
     --exp_id ${tag_dm} \
     --tgt_domain ${tag_dm} \
-    --model_type test \
+    --model_type train \
     --device cuda:0 \
     --dump_path /home/shenhao/data/experiments \
     --bert_path /home/shenhao/bert-base-uncased \

@@ -20,13 +20,13 @@ class Main:
         self.params = params
 
         if self.params.tgt_domain == 'SearchScreeningEvent':
-            self.params.gamma = 6
+            self.params.gamma = 12
         elif self.params.tgt_domain == 'RateBook':
             self.params.gamma = 7
         elif self.params.tgt_domain == 'BookRestaurant':
             self.params.gamma = 6
         elif self.params.tgt_domain == 'PlayMusic':
-            self.params.gamma = 6
+            self.params.gamma = 8
         else: self.params.gamma = 0.5
 
         if params.random_select_slot == 1:
