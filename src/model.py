@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from transformers import BertModel, BertTokenizer
+from transformers import AutoModel, AutoTokenizer, BertModel
 import numpy as np
 import torchtext
 import random
@@ -161,8 +161,15 @@ class Similarity(nn.Module):
 class SlotFilling(nn.Module):
     def __init__(self, params, train_tag2idx, dev_test_tag2idx, bert_path, device):
         super(SlotFilling, self).__init__()
-        self.tokenizer = BertTokenizer.from_pretrained(bert_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(bert_path)
         self.encoder = BertModel.from_pretrained(bert_path)
+        # checkpoint = torch.load(params.new_model_path)
+        # for k,v in self.encoder.named_parameters():
+        #     if 'bert.'+k in checkpoint['net'].keys():
+        #         self.encoder.state_dict()[k].copy_(
+        #             checkpoint['net']['bert.'+k].cpu()
+        #         )
+
         self.device = device
         self.params = params
         self.crf = CRF(num_tags=params.coarse_num*2+2, batch_first=True)
@@ -212,7 +219,7 @@ class SlotFilling(nn.Module):
         reps = torch.cat((coarse_reps, reps, coarse_logits), -1)
         logits = self.sim_func(reps, labelembedding)
         add_score = coarse_logits.matmul(logits_mask.transpose(0, 1))
-        logits =  logits + self.params.gamma * add_score
+        logits =  (1-self.params.gamma) * logits + self.params.gamma * add_score
 
         if not iseval:
             coarse_loss = -self.crf(emissions=coarse_logits, tags=bin_tag,
@@ -227,8 +234,8 @@ class ProjMartrix(nn.Module):
     def __init__(self, params, dataloader_tr):
         super(ProjMartrix, self).__init__()
         self.params = params
-        self.tokenizer = BertTokenizer.from_pretrained(params.bert_path)
-        self.encoder = BertModel.from_pretrained(params.bert_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(params.bert_path)
+        self.encoder = AutoModel.from_pretrained(params.bert_path)
 
         self.Proj = nn.Parameter(torch.empty(768, 300), requires_grad=False)
         self.dropout = nn.Dropout(params.dropout)

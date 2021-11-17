@@ -27,6 +27,7 @@ def get_params():
     parser.add_argument("--bert_path", type=str, default="/data/sh/bert-base-uncased", help="embeddings file")  
     # slu_word_char_embs_with_slotembs.npy
     parser.add_argument("--file_path", type=str, default="/data/sh/coachdata/snips", help="embedding dimension") #400
+    parser.add_argument("--new_model_path", type=str, default="/home/shenhao/pretrain/new_model.dict") #400
     parser.add_argument("--corps_path", type=str, default="/home/sh/data/corps.txt", help="corps file") 
     parser.add_argument("--emb_file", type=str, default="/home/sh/data", help="emb file") 
     parser.add_argument("--proj", type=str, default="no", help="emb file")

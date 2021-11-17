@@ -1,5 +1,4 @@
-tgt_domains=(SearchScreeningEvent)
-# BookRestaurant GetWeather PlayMusic RateBook SearchCreativeWork SearchScreeningEvent)
+tgt_domains=(AddToPlaylist BookRestaurant GetWeather PlayMusic RateBook SearchCreativeWork SearchScreeningEvent)
 exp_n=zero_shot_logits
 for tag_dm in ${tgt_domains[@]}
 do
@@ -8,8 +7,8 @@ do
     --exp_name ${exp_n}  \
     --exp_id ${tag_dm} \
     --tgt_domain ${tag_dm} \
-    --model_type train \
-    --device cuda:0 \
+    --model_type test \
+    --device cuda:1 \
     --dump_path /home/shenhao/data/experiments \
     --bert_path /home/shenhao/bert-base-uncased \
     --file_path /home/shenhao/data/coachdata/snips \
@@ -19,13 +18,11 @@ do
     --model_saved_path /home/shenhao/data/experiments/${exp_n}/${tag_dm} \
     --emb_src Bert \
     --n_samples 0 \
-    --coarse_num 7 \
-    --gamma  2 \
+    --coarse_num 5 \
+    --gamma  0.2 \
     --random_select_slot 0 \
     --proj no
 done
-
-
 
 
 
