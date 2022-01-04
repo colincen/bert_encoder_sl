@@ -7,8 +7,8 @@ do
     --exp_name ${exp_n}  \
     --exp_id ${tag_dm} \
     --tgt_domain ${tag_dm} \
-    --model_type test \
-    --device cuda:1 \
+    --model_type train \
+    --device cuda:0 \
     --dump_path /home/shenhao/data/experiments \
     --bert_path /home/shenhao/bert-base-uncased \
     --file_path /home/shenhao/data/coachdata/snips \
@@ -17,7 +17,7 @@ do
     --emb_file /home/shenhao/data \
     --model_saved_path /home/shenhao/data/experiments/${exp_n}/${tag_dm} \
     --emb_src Bert \
-    --n_samples 0 \
+    --n_samples 20 \
     --coarse_num 5 \
     --gamma  0.2 \
     --random_select_slot 0 \
